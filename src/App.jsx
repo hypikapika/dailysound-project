@@ -37,10 +37,10 @@ const GLOBAL_CSS = `
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const ROLES = { ADMIN: "admin", MANAGER: "manager", SUPERVISOR: "supervisor", USER: "user" };
 const PERMS = {
-  admin:      { createSounding:true, approveSounding:true, createCargo:true, approveCargo:true, viewAll:true, manageUsers:true, closeStock:true },
-  manager:    { createSounding:true, approveSounding:true, createCargo:true, approveCargo:true, viewAll:true, manageUsers:false, closeStock:true },
-  supervisor: { createSounding:true, approveSounding:true, createCargo:true, approveCargo:false, viewAll:true, manageUsers:false, closeStock:false },
-  user:       { createSounding:true, approveSounding:false, createCargo:true, approveCargo:false, viewAll:false, manageUsers:false, closeStock:false },
+  admin:      { createSounding:true, approveSounding:true, createCargo:true, approveCargo:true, createDistrib:true, approveDistrib:true, viewAll:true, manageUsers:true, closeStock:true },
+  manager:    { createSounding:true, approveSounding:true, createCargo:true, approveCargo:true, createDistrib:true, approveDistrib:true, viewAll:true, manageUsers:false, closeStock:true },
+  supervisor: { createSounding:true, approveSounding:true, createCargo:true, approveCargo:false, createDistrib:true, approveDistrib:true, viewAll:true, manageUsers:false, closeStock:false },
+  user:       { createSounding:true, approveSounding:false, createCargo:true, approveCargo:false, createDistrib:true, approveDistrib:false, viewAll:false, manageUsers:false, closeStock:false },
 };
 
 const USERS_DB = [
@@ -51,15 +51,37 @@ const USERS_DB = [
 ];
 
 const TANKS_DB = [
-  { id:"T1", name:"Tank 1 HSD",      type:"shore", capacity:5000, product:"HSD" },
-  { id:"T2", name:"Tank 2 FAME",     type:"shore", capacity:1000, product:"FAME" },
-  { id:"T3", name:"Tank 3",          type:"shore", capacity:850,  product:"HSD" },
-  { id:"T4", name:"Tank 4 Biosolar", type:"shore", capacity:110,  product:"Biosolar" },
+  { id:"T1", name:"Tank 1 HSD",      type:"shore", capacity:5000, product:"HSD",
+    calibration:[{cm:0,kl:0},{cm:100,kl:500},{cm:200,kl:1000},{cm:300,kl:1500},{cm:400,kl:2000},{cm:500,kl:2500},{cm:600,kl:3000},{cm:700,kl:3500},{cm:800,kl:4000},{cm:900,kl:4500},{cm:1000,kl:5000}] },
+  { id:"T2", name:"Tank 2 FAME",     type:"shore", capacity:1000, product:"FAME",
+    calibration:[{cm:0,kl:0},{cm:100,kl:100},{cm:200,kl:200},{cm:300,kl:300},{cm:400,kl:400},{cm:500,kl:500},{cm:600,kl:600},{cm:700,kl:700},{cm:800,kl:800},{cm:900,kl:900},{cm:1000,kl:1000}] },
+  { id:"T3", name:"Tank 3",          type:"shore", capacity:850,  product:"HSD",
+    calibration:[{cm:0,kl:0},{cm:100,kl:94},{cm:200,kl:189},{cm:300,kl:283},{cm:400,kl:378},{cm:500,kl:472},{cm:600,kl:567},{cm:700,kl:661},{cm:800,kl:756},{cm:900,kl:850}] },
+  { id:"T4", name:"Tank 4 Biosolar", type:"shore", capacity:110,  product:"Biosolar",
+    calibration:[{cm:0,kl:0},{cm:50,kl:15.7},{cm:100,kl:31.4},{cm:150,kl:47.1},{cm:200,kl:62.9},{cm:250,kl:78.6},{cm:300,kl:94.3},{cm:350,kl:110}] },
 ];
 
 // Dead level thresholds (same for all tanks per work instruction)
 const DEAD_LEVEL  = { cm:30, volume:150 };  // warning — dead stock level
 const ALERT_LEVEL = { cm:10, volume:54  };  // critical alert level
+
+// ─── CALIBRATION LOOKUP (level cm → volume KL via linear interpolation) ───────
+function getVolumeFromLevel(tankId, levelCm) {
+  const tank = TANKS_DB.find(t => t.id === tankId);
+  if (!tank?.calibration || levelCm === "" || levelCm === null || levelCm === undefined) return null;
+  const cm = parseFloat(levelCm);
+  if (isNaN(cm) || cm < 0) return null;
+  const cal = tank.calibration;
+  if (cm <= cal[0].cm) return cal[0].kl;
+  if (cm >= cal[cal.length-1].cm) return cal[cal.length-1].kl;
+  for (let i = 0; i < cal.length - 1; i++) {
+    if (cm >= cal[i].cm && cm <= cal[i+1].cm) {
+      const ratio = (cm - cal[i].cm) / (cal[i+1].cm - cal[i].cm);
+      return parseFloat((cal[i].kl + ratio * (cal[i+1].kl - cal[i].kl)).toFixed(3));
+    }
+  }
+  return null;
+}
 
 const today = () => new Date().toISOString().split("T")[0];
 const fmt = n => new Intl.NumberFormat("id-ID",{maximumFractionDigits:2}).format(n);
@@ -69,11 +91,18 @@ const fmtDate = d => new Date(d).toLocaleDateString("id-ID",{day:"2-digit",month
 function genId(prefix) { return prefix + "_" + Date.now() + "_" + Math.floor(Math.random()*1000); }
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
+// level is stored in cm (dip from tank bottom); volume auto-calculated from calibration table
 const SEED_SOUNDINGS = [
-  { id:"S001", tankId:"T1", date:"2026-03-07", session:"morning",   time:"07:15", noSounding:false, reason:"", level:2.451, volume:1655.196, temp:30, density:0.850, status:"approved_manager", submittedBy:"nikco",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
-  { id:"S002", tankId:"T2", date:"2026-03-07", session:"morning",   time:"07:30", noSounding:false, reason:"", level:8.254, volume:925.429,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
-  { id:"S003", tankId:"T3", date:"2026-03-07", session:"morning",   time:"07:45", noSounding:false, reason:"", level:5.624, volume:781.116,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nicko",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
-  { id:"S004", tankId:"T4", date:"2026-03-07", session:"morning",   time:"08:00", noSounding:false, reason:"", level:5.155, volume:17.958,   temp:31, density:0.890, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S001", tankId:"T1", date:"2026-03-07", session:"morning", time:"07:15", noSounding:false, reason:"", level:331, volume:1655, temp:30, density:0.850, status:"approved_manager", submittedBy:"nikco",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S002", tankId:"T2", date:"2026-03-07", session:"morning", time:"07:30", noSounding:false, reason:"", level:925, volume:925,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S003", tankId:"T3", date:"2026-03-07", session:"morning", time:"07:45", noSounding:false, reason:"", level:827, volume:781,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nicko",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S004", tankId:"T4", date:"2026-03-07", session:"morning", time:"08:00", noSounding:false, reason:"", level:57,  volume:17.9, temp:31, density:0.890, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+];
+
+// ─── SEED DISTRIBUTIONS ───────────────────────────────────────────────────────
+// Distribution OUT = fuel issued to end consumers / vehicles / vessels
+const SEED_DISTRIBUTIONS = [
+  { id:"D001", tankId:"T4", date:"2026-03-07", time:"09:15", volume:5.0,  recipient:"Koperasi Tani Makmur", vehicleRef:"B 1122 CD", product:"Biosolar B35", status:"approved_manager", submittedBy:"kim", supervisorApproval:"approved", managerApproval:"approved", note:"Subsidi kuota harian" },
 ];
 
 const SEED_CARGO = [
@@ -116,7 +145,7 @@ function RoleBadge({ role }) {
   return (
     <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, border:`1px solid ${c}40`, color:c, background:`${c}15`, fontWeight:800, letterSpacing:1, textTransform:"uppercase" }}>
       {role}
-    </span>
+    </s
   );
 }
 
@@ -193,6 +222,7 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [soundings, setSoundings] = useState(SEED_SOUNDINGS);
   const [cargo, setCargo] = useState(SEED_CARGO);
+  const [distributions, setDistributions] = useState(SEED_DISTRIBUTIONS);
   const [stockLevels, setStockLevels] = useState(computeStockFromSoundings());
   const [closingStock, setClosingStock] = useState({});
   const [modal, setModal] = useState(null);
@@ -237,6 +267,7 @@ export default function App() {
 
     const cargoIn  = cargo.filter(c=>c.tankId===tankId && c.date===date && c.type==="in"  && c.status==="approved_manager").reduce((a,c)=>a+c.volume,0);
     const cargoOut = cargo.filter(c=>c.tankId===tankId && c.date===date && c.type==="out" && c.status==="approved_manager").reduce((a,c)=>a+c.volume,0);
+    const distOut  = distributions.filter(d=>d.tankId===tankId && d.date===date && d.status==="approved_manager").reduce((a,d)=>a+d.volume,0);
 
     // Opening = morning sounding of this date (morning is the cutoff / opening snapshot)
     // If no approved morning sounding, fall back to stockLevels (for first-day data)
@@ -245,7 +276,7 @@ export default function App() {
     return {
       morning: morningVol, afternoon: afternoonVol,
       morningRec, afternoonRec,
-      cargoIn, cargoOut, opening,
+      cargoIn, cargoOut, distOut, opening,
       closing: morningVol ?? closingStock[`${tankId}_${date}`] ?? null,
       noMorningSounding: !morningRec || morningRec.noSounding,
       morningReason: morningRec?.noSounding ? (morningRec.reason || "No reason given") : null,
@@ -310,6 +341,28 @@ export default function App() {
 
   const rejectCargo = (id) => { setCargo(p=>p.map(c=>c.id===id?{...c,status:"rejected"}:c)); showToast("Cargo rejected","warn"); };
 
+  // DISTRIBUTION actions
+  const submitDistribution = (data) => {
+    const newD = { id:genId("D"), ...data, status:"pending_supervisor", submittedBy:user.username, supervisorApproval:"pending", managerApproval:"pending" };
+    setDistributions(p=>[newD,...p]); setModal(null); showToast("Distribution submitted for approval");
+  };
+
+  const approveDistribution = (id, level) => {
+    setDistributions(p=>p.map(d=>{
+      if(d.id!==id) return d;
+      if(level==="supervisor") {
+        const nd = {...d, supervisorApproval:"approved", status: user.role==="manager"?"approved_manager":"approved_supervisor"};
+        if(user.role==="manager") nd.managerApproval="approved";
+        return nd;
+      }
+      if(level==="manager") return {...d, managerApproval:"approved", status:"approved_manager"};
+      return d;
+    }));
+    showToast("Distribution approved ✓");
+  };
+
+  const rejectDistribution = (id) => { setDistributions(p=>p.map(d=>d.id===id?{...d,status:"rejected"}:d)); showToast("Distribution rejected","warn"); };
+
   // CLOSING STOCK
   const closeStockForDay = (tankId, date) => {
     const ctrl = getControlStock(tankId, date);
@@ -320,21 +373,21 @@ export default function App() {
 
   if(!user) return <Login onLogin={setUser} />;
 
-  const pendingCount = soundings.filter(s=>
-    (user.role==="supervisor"&&s.status==="pending_supervisor") ||
-    (user.role==="manager"&&s.status==="approved_supervisor") ||
-    (user.role==="admin"&&(s.status==="pending_supervisor"||s.status==="approved_supervisor"))
-  ).length + cargo.filter(c=>
-    (user.role==="supervisor"&&c.status==="pending_supervisor") ||
-    (user.role==="manager"&&c.status==="approved_supervisor") ||
-    (user.role==="admin"&&(c.status==="pending_supervisor"||c.status==="approved_supervisor"))
-  ).length;
+  const isAwaitingMe = (item) =>
+    (user.role==="supervisor"&&item.status==="pending_supervisor") ||
+    (user.role==="manager"&&(item.status==="approved_supervisor"||item.status==="pending_supervisor")) ||
+    (user.role==="admin"&&(item.status==="pending_supervisor"||item.status==="approved_supervisor"));
+
+  const pendingCount = soundings.filter(isAwaitingMe).length
+    + cargo.filter(isAwaitingMe).length
+    + distributions.filter(isAwaitingMe).length;
 
   // ─── RENDER ─────────────────────────────────────────────────────────────────
   const navItems = [
     { id:"dashboard", icon:"◈", label:"Dashboard" },
     { id:"sounding",  icon:"▾", label:"Sounding" },
     { id:"cargo",     icon:"⇄", label:"Cargo" },
+    { id:"distrib",   icon:"▲", label:"Distribution" },
     { id:"stock",     icon:"▦", label:"Stock" },
     { id:"approval",  icon:"✓", label:"Approvals", badge: pendingCount },
     { id:"blend",     icon:"⚗", label:"Blending" },
@@ -478,10 +531,11 @@ export default function App() {
           {tab==="dashboard" && <DashboardTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} pendingCount={pendingCount} isMobile={isMobile} t3Product={t3Product} setT3Product={setT3Product} />}
           {tab==="sounding" && <SoundingTab user={user} perm={perm} soundings={soundings} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"sounding"})} onApprove={approveSounding} onReject={rejectSounding} currentSession={currentSession} isMobile={isMobile} />}
           {tab==="cargo" && <CargoTab user={user} perm={perm} cargo={cargo} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"cargo"})} onApprove={approveCargo} onReject={rejectCargo} isMobile={isMobile} />}
-          {tab==="stock" && <StockControlTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} perm={perm} onClose={closeStockForDay} closingStock={closingStock} isMobile={isMobile} t3Product={t3Product} />}
-          {tab==="approval" && <ApprovalTab user={user} perm={perm} soundings={soundings} cargo={cargo} onApproveSounding={approveSounding} onRejectSounding={rejectSounding} onApproveCargo={approveCargo} onRejectCargo={rejectCargo} isMobile={isMobile} />}
+          {tab==="distrib" && <DistribTab user={user} perm={perm} distributions={distributions} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"distrib"})} onApprove={approveDistribution} onReject={rejectDistribution} isMobile={isMobile} />}
+          {tab==="stock" && <StockControlTab tanks={TANKS_DB} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} perm={perm} onClose={closeStockForDay} closingStock={closingStock} isMobile={isMobile} t3Product={t3Product} />}
+          {tab==="approval" && <ApprovalTab user={user} perm={perm} soundings={soundings} cargo={cargo} distributions={distributions} onApproveSounding={approveSounding} onRejectSounding={rejectSounding} onApproveCargo={approveCargo} onRejectCargo={rejectCargo} onApproveDistrib={approveDistribution} onRejectDistrib={rejectDistribution} isMobile={isMobile} />}
           {tab==="blend"  && <BlendingTab tanks={TANKS_DB} stockLevels={stockLevels} t3Product={t3Product} />}
-          {tab==="report" && perm.viewAll && <ReportTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} isMobile={isMobile} t3Product={t3Product} />}
+          {tab==="report" && perm.viewAll && <ReportTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} distributions={distributions} stockLevels={stockLevels} isMobile={isMobile} t3Product={t3Product} user={user} />}
           {tab==="users" && perm.manageUsers && <UsersTab />}
         </div>
       </div>
@@ -520,8 +574,9 @@ export default function App() {
           style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}>
           <div className="modal-card" onClick={e=>e.stopPropagation()}
             style={{ background:"#0a0f1e", border:"1px solid rgba(0,200,255,0.15)", borderRadius:16, padding: isMobile ? 20 : 32, width:"94%", maxWidth:520, maxHeight:"92vh", overflowY:"auto" }}>
-            {modal.type==="sounding" && <SoundingForm user={user} onSubmit={submitSounding} onCancel={()=>setModal(null)} currentSession={currentSession} t3Product={t3Product} />}
-            {modal.type==="cargo"    && <CargoForm    user={user} onSubmit={submitCargo}    onCancel={()=>setModal(null)} />}
+            {modal.type==="sounding" && <SoundingForm  user={user} onSubmit={submitSounding}      onCancel={()=>setModal(null)} currentSession={currentSession} t3Product={t3Product} />}
+            {modal.type==="cargo"    && <CargoForm     user={user} onSubmit={submitCargo}         onCancel={()=>setModal(null)} />}
+            {modal.type==="distrib"  && <DistribForm   onSubmit={submitDistribution}  onCancel={()=>setModal(null)} />}
           </div>
         </div>
       )}
@@ -680,17 +735,17 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
       <div>
         <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:12 }}>Daily Inventory Report — {fmtDate(filterDate)}</div>
         <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 95px 85px 90px 100px 90px 110px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
-            <div>Tank</div><div>Opening</div><div>Fuel IN</div><div>Fuel OUT</div><div>Calc. Stock</div><div>Afternoon</div><div>Variance</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 90px 80px 90px 95px 100px 90px 100px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
+            <div>Tank</div><div>Opening</div><div>IN</div><div>Cargo OUT</div><div>Dist. OUT</div><div>Calc. Stock</div><div>Afternoon</div><div>Variance</div>
           </div>
           {tanks.map((tank,i)=>{
             const ctrl = getControlStock(tank.id, filterDate);
             const opening = ctrl.opening;
-            const actual  = opening + ctrl.cargoIn - ctrl.cargoOut;
+            const actual  = opening + ctrl.cargoIn - ctrl.cargoOut - ctrl.distOut;
             const variance = ctrl.afternoon!==null ? ctrl.afternoon-actual : null;
             const varColor = variance===null?"rgba(255,255,255,0.25)":Math.abs(variance)<5?"#34d399":Math.abs(variance)<50?"#fbbf24":"#ef4444";
             return (
-              <div key={tank.id} className="row" style={{ display:"grid", gridTemplateColumns:"1fr 95px 85px 90px 100px 90px 110px", padding:"11px 16px", borderBottom:i<tanks.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:11, background: ctrl.noMorningSounding?"rgba(245,158,11,0.03)":"transparent" }}>
+              <div key={tank.id} className="row" style={{ display:"grid", gridTemplateColumns:"1fr 90px 80px 90px 95px 100px 90px 100px", padding:"11px 16px", borderBottom:i<tanks.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:11, background: ctrl.noMorningSounding?"rgba(245,158,11,0.03)":"transparent" }}>
                 <div>
                   <div style={{ color:"#fff" }}>{tank.name}</div>
                   <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", marginTop:1 }}>
@@ -702,6 +757,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
                 <div style={{ color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"rgba(255,255,255,0.5)", fontSize:10 }}>{ctrl.noMorningSounding?"—":fmt(opening)}</div>
                 <div style={{ color:"#34d399", fontSize:10 }}>{ctrl.cargoIn>0?"+"+fmt(ctrl.cargoIn):"—"}</div>
                 <div style={{ color:"#f87171", fontSize:10 }}>{ctrl.cargoOut>0?"-"+fmt(ctrl.cargoOut):"—"}</div>
+                <div style={{ color:"#fb923c", fontSize:10 }}>{ctrl.distOut>0?"-"+fmt(ctrl.distOut):"—"}</div>
                 <div style={{ color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#00c8ff", fontWeight:600, fontSize:10 }}>{ctrl.noMorningSounding?"—":fmt(actual)}</div>
                 <div style={{ color: ctrl.afternoon!==null?"#60a5fa":"rgba(255,255,255,0.25)", fontSize:10 }}>{ctrl.afternoon!==null?fmt(ctrl.afternoon):"—"}</div>
                 <div style={{ color:varColor, fontWeight:700, fontSize:10 }}>{variance!==null?`${variance>=0?"+":""}${fmt(variance)} KL`:"—"}</div>
@@ -758,7 +814,7 @@ function SoundingTab({ user, perm, soundings, filterDate, setFilterDate, onNew, 
       {/* Table */}
       <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
         <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 110px 70px 80px 80px 80px 1fr 130px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
-          <div>ID</div><div>Tank</div><div>Session · Time</div><div>Level(m)</div><div>Vol(KL)</div><div>Temp(°C)</div><div>Density</div><div>Status</div><div>Actions</div>
+          <div>ID</div><div>Tank</div><div>Session · Time</div><div>Dip(cm)</div><div>Vol(KL)</div><div>Temp(°C)</div><div>Density</div><div>Status</div><div>Actions</div>
         </div>
         {filtered.length===0 && <div style={{ padding:"36px", textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:12 }}>No sounding records for this date</div>}
         {filtered.map((s,i)=>{
@@ -902,8 +958,87 @@ function CargoTab({ user, perm, cargo, filterDate, setFilterDate, onNew, onAppro
   );
 }
 
+// ─── DISTRIBUTION TAB ─────────────────────────────────────────────────────────
+function DistribTab({ user, perm, distributions, filterDate, setFilterDate, onNew, onApprove, onReject }) {
+  const filtered = distributions.filter(d => !filterDate || d.date === filterDate);
+  const canApprove = (d) => {
+    if(user.role==="supervisor" && d.status==="pending_supervisor") return true;
+    if(user.role==="manager" && (d.status==="approved_supervisor"||d.status==="pending_supervisor")) return true;
+    if(user.role==="admin") return d.status!=="approved_manager"&&d.status!=="rejected";
+    return false;
+  };
+  const totalApproved = filtered.filter(d=>d.status==="approved_manager").reduce((a,d)=>a+d.volume,0);
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
+        <div>
+          <div style={{ fontSize:10, letterSpacing:3, color:"rgba(251,146,60,0.7)", textTransform:"uppercase", marginBottom:4 }}>Fuel Issued to Consumers</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:38, letterSpacing:3 }}>DISTRIBUTION OUT</div>
+        </div>
+        <div style={{ display:"flex", gap:10 }}>
+          <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)}
+            style={{ background:"rgba(0,200,255,0.05)", border:"1px solid rgba(0,200,255,0.2)", borderRadius:8, padding:"8px 12px", color:"#00c8ff", fontSize:12 }} />
+          {perm.createDistrib && (
+            <button className="btn-act" onClick={onNew}
+              style={{ background:"linear-gradient(135deg,#7a3800,#fb923c)", border:"none", borderRadius:8, padding:"9px 18px", color:"#fff", fontSize:11, letterSpacing:1, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>
+              + NEW DISTRIBUTION
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div style={{ background:"rgba(251,146,60,0.06)", border:"1px solid rgba(251,146,60,0.2)", borderRadius:12, padding:"16px 20px", marginBottom:24, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <div>
+          <div style={{ fontSize:9, letterSpacing:2, color:"rgba(251,146,60,0.7)", textTransform:"uppercase", marginBottom:4 }}>Total Distributed (approved) — {filterDate}</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:30, color:"#fb923c" }}>{fmt(totalApproved)} KL</div>
+        </div>
+        <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>{filtered.filter(d=>d.status==="approved_manager").length} transactions</div>
+      </div>
+
+      {/* Table */}
+      <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 75px 85px 1fr 1fr 1fr 130px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(251,146,60,0.6)", textTransform:"uppercase" }}>
+          <div>ID</div><div>Tank</div><div>Time</div><div>Vol(KL)</div><div>Recipient</div><div>Vehicle/Ref</div><div>Status</div><div>Actions</div>
+        </div>
+        {filtered.length===0 && <div style={{ padding:"36px", textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:12 }}>No distribution records for this date</div>}
+        {filtered.map((d,i)=>{
+          const tank = TANKS_DB.find(t=>t.id===d.tankId);
+          return (
+            <div key={d.id} className="row" style={{ display:"grid", gridTemplateColumns:"80px 1fr 75px 85px 1fr 1fr 1fr 130px", padding:"12px 16px", borderBottom:i<filtered.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:12 }}>
+              <div style={{ color:"rgba(255,255,255,0.3)", fontSize:10 }}>{d.id}</div>
+              <div>
+                <div style={{ color:"#fff" }}>{tank?.name}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>{d.date} · {d.product}</div>
+              </div>
+              <div style={{ color:"rgba(255,255,255,0.5)", fontSize:10 }}>{d.time||"—"}</div>
+              <div style={{ fontWeight:700, color:"#fb923c" }}>-{fmt(d.volume)}</div>
+              <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11 }}>{d.recipient}</div>
+              <div style={{ color:"rgba(255,255,255,0.4)", fontSize:10 }}>{d.vehicleRef||"—"}</div>
+              <div><StatusBadge status={d.status} /></div>
+              <div style={{ display:"flex", gap:6 }}>
+                {canApprove(d) && (
+                  <>
+                    <button className="btn-act" onClick={()=>onApprove(d.id, user.role==="supervisor"?"supervisor":"manager")}
+                      style={{ padding:"4px 10px", background:"rgba(52,211,153,0.15)", border:"1px solid rgba(52,211,153,0.3)", borderRadius:5, color:"#34d399", fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>✓ Approve</button>
+                    <button className="btn-act" onClick={()=>onReject(d.id)}
+                      style={{ padding:"4px 8px", background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:5, color:"#ef4444", fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>✗</button>
+                  </>
+                )}
+                {d.status==="approved_manager" && <span style={{ fontSize:10, color:"#34d399" }}>✓ Final</span>}
+                {d.status==="rejected" && <span style={{ fontSize:10, color:"#ef4444" }}>Rejected</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── STOCK CONTROL ────────────────────────────────────────────────────────────
-function StockControlTab({ tanks, soundings, cargo, getControlStock, filterDate, setFilterDate, perm, onClose, closingStock, t3Product }) {
+function StockControlTab({ tanks, getControlStock, filterDate, setFilterDate, perm, onClose, closingStock, t3Product }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
@@ -917,7 +1052,7 @@ function StockControlTab({ tanks, soundings, cargo, getControlStock, filterDate,
 
       {/* Legend */}
       <div style={{ display:"flex", gap:16, marginBottom:20, fontSize:10, color:"rgba(255,255,255,0.4)", flexWrap:"wrap" }}>
-        <span>Formula: <span style={{ color:"#00c8ff" }}>Calculated Stock = Opening (Morning) + Fuel IN − Fuel OUT</span></span>
+        <span>Formula: <span style={{ color:"#00c8ff" }}>Calc. Stock = Opening + Discharge IN − Cargo OUT − Distribution OUT</span></span>
         <span>|</span>
         <span>Morning sounding = cut-off / opening snapshot</span>
         <span>|</span>
@@ -929,7 +1064,7 @@ function StockControlTab({ tanks, soundings, cargo, getControlStock, filterDate,
         {tanks.map(tank=>{
           const ctrl = getControlStock(tank.id, filterDate);
           const opening = ctrl.opening;
-          const actual  = opening + ctrl.cargoIn - ctrl.cargoOut;
+          const actual  = opening + ctrl.cargoIn - ctrl.cargoOut - ctrl.distOut;
           const diff    = ctrl.afternoon !== null ? (ctrl.afternoon - actual) : null;
           const hasClosing = closingStock[`${tank.id}_${filterDate}`];
           const typeIcon = { ship:"🚢", shore:"🏭", depot:"⛽" }[tank.type];
@@ -976,17 +1111,18 @@ function StockControlTab({ tanks, soundings, cargo, getControlStock, filterDate,
               )}
 
               {/* Control grid */}
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", padding:"0" }}>
                 {[
-                  { label:"Opening (Morning Cut-off)", val: ctrl.noMorningSounding?"— No Data":fmt(opening)+" KL", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#fff", sub:"Morning sounding snapshot" },
-                  { label:"Fuel IN (Discharge)", val: ctrl.cargoIn>0?"+"+fmt(ctrl.cargoIn)+" KL":"— KL", color:"#34d399", sub:"Received / discharge" },
-                  { label:"Fuel OUT (Distributed)", val: ctrl.cargoOut>0?"-"+fmt(ctrl.cargoOut)+" KL":"— KL", color:"#f87171", sub:"Distributed / sold" },
-                  { label:"Calculated Stock", val: ctrl.noMorningSounding?"— No Data":fmt(actual)+" KL", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#00c8ff", sub:"Opening+IN−OUT", highlight:true },
-                  { label:"Morning Time", val: ctrl.morningRec&&!ctrl.noMorningSounding?(ctrl.morningRec.time||"—"):"—", color:"#fbbf24", sub: ctrl.morningRec&&!ctrl.noMorningSounding?fmt(ctrl.morning)+" KL":"No reading" },
+                  { label:"Opening (Morning)", val: ctrl.noMorningSounding?"— No Data":fmt(opening)+" KL", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#fff", sub:"Morning cut-off snapshot" },
+                  { label:"Discharge IN", val: ctrl.cargoIn>0?"+"+fmt(ctrl.cargoIn)+" KL":"—", color:"#34d399", sub:"Cargo received" },
+                  { label:"Cargo OUT", val: ctrl.cargoOut>0?"-"+fmt(ctrl.cargoOut)+" KL":"—", color:"#f87171", sub:"Transfer / cargo out" },
+                  { label:"Distribution OUT", val: ctrl.distOut>0?"-"+fmt(ctrl.distOut)+" KL":"—", color:"#fb923c", sub:"Fuel issued to consumers" },
+                  { label:"Calculated Stock", val: ctrl.noMorningSounding?"— No Data":fmt(actual)+" KL", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#00c8ff", sub:"Open+IN−CargoOut−DistOut", highlight:true },
+                  { label:"Morning Time", val: ctrl.morningRec&&!ctrl.noMorningSounding?(ctrl.morningRec.time||"—"):"—", color:"#fbbf24", sub: ctrl.morningRec&&!ctrl.noMorningSounding?fmt(ctrl.morning)+" KL cut-off":"No reading" },
                   { label:"Afternoon Reading", val: ctrl.afternoon!==null?fmt(ctrl.afternoon)+" KL":"No data", color: ctrl.afternoon!==null?"#60a5fa":"rgba(255,255,255,0.2)", sub: ctrl.afternoonRec?.time||"19:00 verify" },
                   { label:"Variance", val: diff!==null?`${diff>=0?"+":""}${fmt(diff)} KL`:"—", color: diff===null?"rgba(255,255,255,0.2)":Math.abs(diff)<5?"#34d399":Math.abs(diff)<50?"#fbbf24":"#ef4444", sub:"Afternoon vs Calculated" },
                 ].map((col,ci)=>(
-                  <div key={ci} style={{ padding:"14px 16px", borderRight: ci<6?"1px solid rgba(255,255,255,0.05)":"none", background: col.highlight?"rgba(0,200,255,0.04)":"transparent" }}>
+                  <div key={ci} style={{ padding:"14px 16px", borderRight: ci<7?"1px solid rgba(255,255,255,0.05)":"none", background: col.highlight?"rgba(0,200,255,0.04)":"transparent" }}>
                     <div style={{ fontSize:9, letterSpacing:1.5, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:6 }}>{col.label}</div>
                     <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:18, color:col.color }}>{col.val}</div>
                     <div style={{ fontSize:9, color:"rgba(255,255,255,0.25)", marginTop:3 }}>{col.sub}</div>
@@ -1002,22 +1138,17 @@ function StockControlTab({ tanks, soundings, cargo, getControlStock, filterDate,
 }
 
 // ─── APPROVALS ────────────────────────────────────────────────────────────────
-function ApprovalTab({ user, perm, soundings, cargo, onApproveSounding, onRejectSounding, onApproveCargo, onRejectCargo }) {
+function ApprovalTab({ user, perm, soundings, cargo, distributions, onApproveSounding, onRejectSounding, onApproveCargo, onRejectCargo, onApproveDistrib, onRejectDistrib }) {
   const [activeType, setActiveType] = useState("sounding");
 
-  const pendingSoundings = soundings.filter(s=> {
-    if(user.role==="supervisor") return s.status==="pending_supervisor";
-    if(user.role==="manager") return s.status==="approved_supervisor"||s.status==="pending_supervisor";
-    if(user.role==="admin") return s.status!=="approved_manager"&&s.status!=="rejected";
-    return false;
-  });
+  const awaitingMe = (item) =>
+    (user.role==="supervisor" && item.status==="pending_supervisor") ||
+    (user.role==="manager" && (item.status==="approved_supervisor"||item.status==="pending_supervisor")) ||
+    (user.role==="admin" && item.status!=="approved_manager" && item.status!=="rejected");
 
-  const pendingCargo = cargo.filter(c=> {
-    if(user.role==="supervisor") return c.status==="pending_supervisor";
-    if(user.role==="manager") return c.status==="approved_supervisor"||c.status==="pending_supervisor";
-    if(user.role==="admin") return c.status!=="approved_manager"&&c.status!=="rejected";
-    return false;
-  });
+  const pendingSoundings = soundings.filter(awaitingMe);
+  const pendingCargo = cargo.filter(awaitingMe);
+  const pendingDistrib = distributions.filter(awaitingMe);
 
   const approveLevel = user.role==="supervisor"?"supervisor":"manager";
 
@@ -1050,7 +1181,7 @@ function ApprovalTab({ user, perm, soundings, cargo, onApproveSounding, onReject
 
       {/* Tab switch */}
       <div style={{ display:"flex", gap:10, marginBottom:20 }}>
-        {[["sounding","Daily Sounding",pendingSoundings.length],["cargo","Cargo",pendingCargo.length]].map(([id,label,cnt])=>(
+        {[["sounding","Daily Sounding",pendingSoundings.length],["cargo","Cargo",pendingCargo.length],["distrib","Distribution",pendingDistrib.length]].map(([id,label,cnt])=>(
           <button key={id} onClick={()=>setActiveType(id)}
             style={{ padding:"8px 18px", background: activeType===id?"rgba(0,200,255,0.12)":"rgba(255,255,255,0.03)", border:`1px solid ${activeType===id?"rgba(0,200,255,0.3)":"rgba(255,255,255,0.07)"}`, borderRadius:8, color: activeType===id?"#00c8ff":"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer", fontFamily:"inherit", letterSpacing:1, display:"flex", alignItems:"center", gap:8 }}>
             {label}
@@ -1119,15 +1250,72 @@ function ApprovalTab({ user, perm, soundings, cargo, onApproveSounding, onReject
           })}
         </div>
       )}
+
+      {activeType==="distrib" && (
+        <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
+          {pendingDistrib.length===0 && <div style={{ padding:"40px", textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:12 }}>No pending distribution approvals</div>}
+          {pendingDistrib.map((d,i)=>{
+            const tank = TANKS_DB.find(t=>t.id===d.tankId);
+            return (
+              <div key={d.id} className="row" style={{ padding:"16px 20px", borderBottom: i<pendingDistrib.length-1?"1px solid rgba(255,255,255,0.05)":"none", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div style={{ display:"flex", gap:20, alignItems:"center" }}>
+                  <div>
+                    <div style={{ fontSize:13, color:"#fff", fontWeight:600 }}>{tank?.name} · <span style={{ color:"#fb923c" }}>DISTRIBUTION OUT</span></div>
+                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:2 }}>{d.date} {d.time||""} · {d.recipient} · {d.product} · by {d.submittedBy}</div>
+                  </div>
+                  <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:22, color:"#fb923c" }}>
+                    -{fmt(d.volume)} KL
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <StatusBadge status={d.status} />
+                  <button className="btn-act" onClick={()=>onApproveDistrib(d.id,approveLevel)}
+                    style={{ padding:"7px 16px", background:"rgba(52,211,153,0.12)", border:"1px solid rgba(52,211,153,0.3)", borderRadius:7, color:"#34d399", fontSize:11, cursor:"pointer", fontFamily:"inherit", fontWeight:800 }}>✓ APPROVE</button>
+                  <button className="btn-act" onClick={()=>onRejectDistrib(d.id)}
+                    style={{ padding:"7px 12px", background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:7, color:"#ef4444", fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>✗ REJECT</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── REPORTS ─────────────────────────────────────────────────────────────────
-function ReportTab({ tanks, soundings, cargo, stockLevels, t3Product }) {
+function ReportTab({ tanks, soundings, cargo, distributions, stockLevels, t3Product, user }) {
   const approvedSoundings = soundings.filter(s=>s.status==="approved_manager");
   const approvedCargo = cargo.filter(c=>c.status==="approved_manager");
   const tankColors = ["#00c8ff","#34d399","#fbbf24","#a78bfa"];
+
+  // Period-based inventory (manager/admin only)
+  const canUsePeriod = user.role==="manager"||user.role==="admin";
+  const [periodStart, setPeriodStart] = useState(today()+"T07:00");
+  const [periodEnd,   setPeriodEnd]   = useState(today()+"T19:00");
+  const [showPeriod,  setShowPeriod]  = useState(false);
+
+  const periodInventory = tanks.map(tank => {
+    const startDate = periodStart.split("T")[0];
+    const endDate   = periodEnd.split("T")[0];
+    // Opening = morning sounding on or before start date
+    const openingSnap = soundings.filter(s=>s.tankId===tank.id&&s.status==="approved_manager"&&s.session==="morning"&&!s.noSounding&&s.date<=startDate)
+      .sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const opening = openingSnap?.volume ?? stockLevels[tank.id] ?? 0;
+    // Closing = morning sounding on or before end date
+    const closingSnap = soundings.filter(s=>s.tankId===tank.id&&s.status==="approved_manager"&&s.session==="morning"&&!s.noSounding&&s.date<=endDate&&s.date>=startDate)
+      .sort((a,b)=>b.date.localeCompare(a.date))[0];
+    // Cargo IN within period
+    const cargoIn = cargo.filter(c=>c.tankId===tank.id&&c.status==="approved_manager"&&c.type==="in"&&c.date>=startDate&&c.date<=endDate).reduce((a,c)=>a+c.volume,0);
+    // Cargo OUT within period
+    const cargoOut = cargo.filter(c=>c.tankId===tank.id&&c.status==="approved_manager"&&c.type==="out"&&c.date>=startDate&&c.date<=endDate).reduce((a,c)=>a+c.volume,0);
+    // Distribution OUT within period
+    const distOut = distributions.filter(d=>d.tankId===tank.id&&d.status==="approved_manager"&&d.date>=startDate&&d.date<=endDate).reduce((a,d)=>a+d.volume,0);
+    const calcClosing = opening + cargoIn - cargoOut - distOut;
+    const actualClosing = closingSnap?.volume ?? null;
+    const variance = actualClosing !== null ? actualClosing - calcClosing : null;
+    return { tank, opening, cargoIn, cargoOut, distOut, calcClosing, actualClosing, variance, openingSnap, closingSnap };
+  });
 
   return (
     <div>
@@ -1148,6 +1336,63 @@ function ReportTab({ tanks, soundings, cargo, stockLevels, t3Product }) {
           </button>
         </div>
       </div>
+
+      {/* Period Inventory (manager/admin) */}
+      {canUsePeriod && (
+        <div style={{ marginBottom:28, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:12 }}>
+          <div style={{ padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ fontSize:10, letterSpacing:2, color:"rgba(167,139,250,0.7)", textTransform:"uppercase" }}>Period Inventory Report</div>
+            <button className="btn-act" onClick={()=>setShowPeriod(p=>!p)}
+              style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:7, padding:"6px 14px", color:"#a78bfa", fontSize:10, cursor:"pointer", fontFamily:"inherit", fontWeight:800 }}>
+              {showPeriod?"▲ COLLAPSE":"▼ EXPAND"}
+            </button>
+          </div>
+          {showPeriod && (
+            <div style={{ padding:"20px 24px" }}>
+              {/* Period selector */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:14, marginBottom:20, alignItems:"flex-end" }}>
+                <div>
+                  <div style={{ fontSize:9, letterSpacing:2, color:"rgba(167,139,250,0.6)", textTransform:"uppercase", marginBottom:6 }}>Period Start</div>
+                  <input type="datetime-local" value={periodStart} onChange={e=>setPeriodStart(e.target.value)}
+                    style={{ ...{width:"100%", background:"rgba(167,139,250,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, padding:"9px 12px", color:"#a78bfa", fontSize:12, fontFamily:"'Share Tech Mono',monospace"} }} />
+                </div>
+                <div>
+                  <div style={{ fontSize:9, letterSpacing:2, color:"rgba(167,139,250,0.6)", textTransform:"uppercase", marginBottom:6 }}>Period End</div>
+                  <input type="datetime-local" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)}
+                    style={{ ...{width:"100%", background:"rgba(167,139,250,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, padding:"9px 12px", color:"#a78bfa", fontSize:12, fontFamily:"'Share Tech Mono',monospace"} }} />
+                </div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)", paddingBottom:4 }}>
+                  {periodStart.split("T")[0]} → {periodEnd.split("T")[0]}
+                </div>
+              </div>
+              {/* Period inventory table */}
+              <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, overflow:"hidden" }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 95px 85px 90px 95px 110px 110px 100px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(167,139,250,0.6)", textTransform:"uppercase" }}>
+                  <div>Tank</div><div>Opening</div><div>IN</div><div>Cargo OUT</div><div>Dist. OUT</div><div>Calc. Closing</div><div>Actual Closing</div><div>Variance</div>
+                </div>
+                {periodInventory.map(({tank, opening, cargoIn, cargoOut, distOut, calcClosing, actualClosing, variance, openingSnap},i)=>{
+                  const varColor = variance===null?"rgba(255,255,255,0.25)":Math.abs(variance)<5?"#34d399":Math.abs(variance)<50?"#fbbf24":"#ef4444";
+                  return (
+                    <div key={tank.id} className="row" style={{ display:"grid", gridTemplateColumns:"1fr 95px 85px 90px 95px 110px 110px 100px", padding:"11px 16px", borderBottom:i<tanks.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:11 }}>
+                      <div>
+                        <div style={{ color:"#fff" }}>{tank.name}</div>
+                        <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", marginTop:1 }}>{openingSnap?.date||"no snap"} cut-off</div>
+                      </div>
+                      <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10 }}>{fmt(opening)} KL</div>
+                      <div style={{ color:"#34d399", fontSize:10 }}>{cargoIn>0?"+"+fmt(cargoIn):"—"}</div>
+                      <div style={{ color:"#f87171", fontSize:10 }}>{cargoOut>0?"-"+fmt(cargoOut):"—"}</div>
+                      <div style={{ color:"#fb923c", fontSize:10 }}>{distOut>0?"-"+fmt(distOut):"—"}</div>
+                      <div style={{ color:"#00c8ff", fontWeight:700, fontSize:10 }}>{fmt(calcClosing)} KL</div>
+                      <div style={{ color:actualClosing!==null?"#60a5fa":"rgba(255,255,255,0.25)", fontSize:10 }}>{actualClosing!==null?fmt(actualClosing)+" KL":"— no sounding"}</div>
+                      <div style={{ color:varColor, fontWeight:700, fontSize:10 }}>{variance!==null?`${variance>=0?"+":""}${fmt(variance)} KL`:"—"}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats grid */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
@@ -1525,9 +1770,19 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
   const [f, setF] = useState({
     tankId:"T1", date:today(), session:currentSession, time:defaultTime,
     noSounding:false, reason:"", customReason:"",
-    level:"", volume:"", temp:"", density:"", note:"",
+    level:"", volume:"", volumeFromCal:false, temp:"", density:"", note:"",
   });
   const set = (k,v) => setF(p=>({...p,[k]:v}));
+
+  const handleTankChange = (tankId) => {
+    const calcVol = getVolumeFromLevel(tankId, f.level);
+    setF(p=>({...p, tankId, volume: calcVol!==null ? calcVol : p.volume, volumeFromCal: calcVol!==null }));
+  };
+
+  const handleLevelChange = (val) => {
+    const calcVol = getVolumeFromLevel(f.tankId, val);
+    setF(p=>({...p, level:val, volume: calcVol!==null ? String(calcVol) : p.volume, volumeFromCal: calcVol!==null }));
+  };
 
   const handleSessionChange = (ses) => {
     set("session", ses);
@@ -1539,12 +1794,12 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
     if(!f.noSounding) {
       if(!f.level||!f.volume||!f.temp||!f.density) return alert("Fill all sounding fields");
       onSubmit({ ...f, level:+f.level, volume:+f.volume, temp:+f.temp, density:+f.density,
-        reason:"", customReason:"" });
+        reason:"", customReason:"", volumeFromCal:undefined });
     } else {
       const finalReason = f.reason === "Other" ? (f.customReason||"Other") : f.reason;
       if(!finalReason) return alert("Enter a reason for no sounding");
       onSubmit({ ...f, noSounding:true, reason:finalReason,
-        level:null, volume:null, temp:null, density:null });
+        level:null, volume:null, temp:null, density:null, volumeFromCal:undefined });
     }
   };
 
@@ -1568,7 +1823,7 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
         <div>
           <Label>Tank</Label>
-          <select value={f.tankId} onChange={e=>set("tankId",e.target.value)} style={inputStyle}>
+          <select value={f.tankId} onChange={e=>handleTankChange(e.target.value)} style={inputStyle}>
             {TANKS_DB.map(t=><option key={t.id} value={t.id} style={{background:"#0a0f1e"}}>{t.name} ({t.id==="T3" ? t3Product : t.product})</option>)}
           </select>
         </div>
@@ -1607,12 +1862,19 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
           /* Normal sounding fields */
           <>
             <div>
-              <Label>Tank Level (meters)</Label>
-              <input type="number" step="0.01" placeholder="e.g. 2.45" value={f.level} onChange={e=>set("level",e.target.value)} style={inputStyle} />
+              <Label>Dip Level (cm)</Label>
+              <input type="number" step="0.1" min="0" placeholder="e.g. 331" value={f.level} onChange={e=>handleLevelChange(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <Label>Volume (KL)</Label>
-              <input type="number" step="0.001" placeholder="e.g. 1655.196" value={f.volume} onChange={e=>set("volume",e.target.value)} style={inputStyle} />
+              <div style={{ fontSize:9, letterSpacing:2, textTransform:"uppercase", marginBottom:6, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ color:"rgba(0,200,255,0.5)" }}>Volume (KL)</span>
+                {f.volumeFromCal
+                  ? <span style={{ color:"#34d399", fontSize:8 }}>◈ AUTO — calibration table</span>
+                  : <span style={{ color:"rgba(255,255,255,0.25)", fontSize:8 }}>manual input</span>}
+              </div>
+              <input type="number" step="0.001" min="0" placeholder="auto from calibration" value={f.volume}
+                onChange={e=>{set("volume",e.target.value);set("volumeFromCal",false);}}
+                style={{ ...inputStyle, borderColor: f.volumeFromCal?"rgba(52,211,153,0.4)":"rgba(0,200,255,0.15)" }} />
             </div>
             <div>
               <Label>Temperature (°C)</Label>
@@ -1697,6 +1959,66 @@ function CargoForm({ user, onSubmit, onCancel }) {
         <button onClick={onCancel} style={{ ...btnBase, flex:1, background:"rgba(255,255,255,0.05)", color:"rgba(255,255,255,0.6)" }}>Cancel</button>
         <button onClick={handle}   style={{ ...btnBase, flex:2, background:`linear-gradient(135deg,${f.type==="in"?"#1a6b00,#34d399":"#7a0000,#ef4444"})`, color:"#fff" }}>
           SUBMIT CARGO {f.type.toUpperCase()}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DistribForm({ onSubmit, onCancel }) {
+  const [f, setF] = useState({ tankId:"T4", date:today(), time:"", volume:"", recipient:"", vehicleRef:"", product:"Biosolar B35", note:"" });
+  const set = (k,v) => setF(p=>({...p,[k]:v}));
+  const handle = () => {
+    if(!f.volume||!f.recipient) return alert("Fill volume and recipient fields");
+    onSubmit({ ...f, volume:+f.volume });
+  };
+  const productOptions = ["HSD","Biosolar B30","Biosolar B35","Biosolar B40","Biosolar B50","FAME","Biosolar B100"];
+  return (
+    <div>
+      <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:28, letterSpacing:3, marginBottom:8, color:"#fb923c" }}>NEW DISTRIBUTION</div>
+      <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginBottom:20 }}>Record fuel issued to consumer / vehicle for approval</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+        <div>
+          <Label>Tank</Label>
+          <select value={f.tankId} onChange={e=>set("tankId",e.target.value)} style={inputStyle}>
+            {TANKS_DB.map(t=><option key={t.id} value={t.id} style={{background:"#0a0f1e"}}>{t.name} ({t.product})</option>)}
+          </select>
+        </div>
+        <div>
+          <Label>Date</Label>
+          <input type="date" value={f.date} onChange={e=>set("date",e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <Label>Delivery Time</Label>
+          <input type="time" value={f.time} onChange={e=>set("time",e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <Label>Product</Label>
+          <select value={f.product} onChange={e=>set("product",e.target.value)} style={inputStyle}>
+            {productOptions.map(p=><option key={p} value={p} style={{background:"#0a0f1e"}}>{p}</option>)}
+          </select>
+        </div>
+        <div>
+          <Label>Volume (KL) *</Label>
+          <input type="number" step="0.001" min="0" placeholder="e.g. 5.0" value={f.volume} onChange={e=>set("volume",e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <Label>Recipient / Consumer *</Label>
+          <input placeholder="e.g. PT Maju Jaya / Koperasi Tani" value={f.recipient} onChange={e=>set("recipient",e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <Label>Vehicle / Vessel Ref</Label>
+          <input placeholder="e.g. B 1234 XY" value={f.vehicleRef} onChange={e=>set("vehicleRef",e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <Label>Note</Label>
+          <input value={f.note} onChange={e=>set("note",e.target.value)} style={inputStyle} />
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:10, marginTop:24 }}>
+        <button onClick={onCancel} style={{ ...btnBase, flex:1, background:"rgba(255,255,255,0.05)", color:"rgba(255,255,255,0.6)" }}>Cancel</button>
+        <button onClick={handle} style={{ ...btnBase, flex:2, background:"linear-gradient(135deg,#7a3800,#fb923c)", color:"#fff" }}>
+          SUBMIT DISTRIBUTION
         </button>
       </div>
     </div>
