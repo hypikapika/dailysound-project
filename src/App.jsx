@@ -1,28 +1,52 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
-// ─── FONTS & GLOBAL STYLES ────────────────────────────────────────────────────
+// ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;500;600;700;800&display=swap');
 
+  :root{
+    --bg:#050810;
+    --bg2:#071126;
+    --card:#0a1324;
+    --card2:#0d1830;
+    --line:rgba(255,255,255,0.07);
+    --line2:rgba(0,200,255,0.16);
+    --text:#ffffff;
+    --muted:rgba(255,255,255,0.58);
+    --cyan:#00c8ff;
+    --cyan2:#4fd9ff;
+    --green:#34d399;
+    --yellow:#fbbf24;
+    --red:#ef4444;
+    --blue:#60a5fa;
+    --purple:#a78bfa;
+  }
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body, #root { min-height: 100%; }
-  body { background: #050810; color: #fff; font-family: 'Share Tech Mono', monospace; }
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  body {
+    background:
+      radial-gradient(circle at 15% 10%, rgba(0,200,255,0.08), transparent 24%),
+      radial-gradient(circle at 85% 20%, rgba(96,165,250,0.07), transparent 22%),
+      linear-gradient(180deg,#04070d 0%, #050810 100%);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(0,200,255,0.2); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,200,255,0.18); border-radius: 999px; }
 
   input, select, textarea, button {
     outline: none;
     font-family: 'Share Tech Mono', monospace;
   }
 
-  input, select, textarea {
-    color-scheme: dark;
-  }
+  input, select, textarea { color-scheme: dark; }
 
   input:focus, select:focus, textarea:focus {
-    border-color: #00c8ff !important;
-    box-shadow: 0 0 0 2px rgba(0,200,255,0.1);
+    border-color: var(--cyan) !important;
+    box-shadow: 0 0 0 2px rgba(0,200,255,0.12);
   }
 
   input[type="date"]::-webkit-calendar-picker-indicator {
@@ -31,38 +55,58 @@ const GLOBAL_CSS = `
     cursor: pointer;
   }
 
-  .nav-btn { transition: all 0.15s ease; cursor: pointer; }
-  .nav-btn:hover { background: rgba(0,200,255,0.08) !important; }
-  .nav-btn.active { background: rgba(0,200,255,0.12) !important; border-left: 2px solid #00c8ff !important; }
+  .nav-btn { transition: all .18s ease; cursor:pointer; }
+  .nav-btn:hover {
+    background: linear-gradient(90deg, rgba(0,200,255,0.10), rgba(0,200,255,0.03)) !important;
+    border-color: rgba(0,200,255,0.22) !important;
+  }
+  .nav-btn.active {
+    background: linear-gradient(90deg, rgba(0,200,255,0.15), rgba(0,200,255,0.04)) !important;
+    border-left: 2px solid var(--cyan) !important;
+    box-shadow: inset 0 0 0 1px rgba(0,200,255,0.08);
+  }
 
-  .row:hover { background: rgba(0,200,255,0.03) !important; }
+  .row:hover {
+    background: linear-gradient(90deg, rgba(0,200,255,0.035), rgba(255,255,255,0.01)) !important;
+  }
 
-  .btn-act { transition: all 0.15s; cursor: pointer; }
-  .btn-act:hover { filter: brightness(1.12); transform: translateY(-1px); }
-  .btn-act:active { transform: scale(0.97); }
+  .btn-act { transition: all .16s; cursor:pointer; }
+  .btn-act:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn-act:active { transform: scale(.98); }
 
-  .modal-bg { animation: fIn 0.15s ease; }
-  .modal-card { animation: sUp 0.2s ease; }
+  .modal-bg { animation: fIn .15s ease; }
+  .modal-card { animation: sUp .22s ease; }
 
   @keyframes fIn { from{opacity:0} to{opacity:1} }
-  @keyframes sUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+  @keyframes sUp { from{transform:translateY(18px);opacity:0} to{transform:translateY(0);opacity:1} }
 
-  .toast-anim { animation: tIn 0.3s ease; }
+  .toast-anim { animation: tIn .3s ease; }
   @keyframes tIn { from{transform:translateX(60px);opacity:0} to{transform:translateX(0);opacity:1} }
 
   .pulse { animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
 
-  .tank-bar { transition: height 0.6s cubic-bezier(.4,0,.2,1), width 0.6s cubic-bezier(.4,0,.2,1); }
+  .tank-bar {
+    transition: width .65s cubic-bezier(.4,0,.2,1), height .65s cubic-bezier(.4,0,.2,1);
+  }
 
-  .blink { animation: blink 1s step-end infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .glass {
+    background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.02));
+    backdrop-filter: blur(10px);
+  }
 
-  .sidebar-slide { transition: transform 0.25s cubic-bezier(.4,0,.2,1), opacity 0.25s; }
-  .sidebar-overlay { animation: fIn 0.2s ease; }
+  .grid-bg{
+    background-image:
+      linear-gradient(rgba(0,200,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,0.035) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+
+  .sidebar-slide { transition: transform .25s cubic-bezier(.4,0,.2,1), opacity .25s; }
+  .sidebar-overlay { animation: fIn .2s ease; }
 
   .bottom-nav-item {
-    transition: all 0.15s;
+    transition: all .15s;
     cursor: pointer;
     display:flex;
     flex-direction:column;
@@ -72,7 +116,16 @@ const GLOBAL_CSS = `
     border-radius:10px;
     flex:1;
   }
-  .bottom-nav-item:active { transform: scale(0.92); }
+  .bottom-nav-item:active { transform: scale(.94); }
+
+  .kpi-accent {
+    position:absolute;
+    inset:auto auto 0 0;
+    height:2px;
+    width:100%;
+    background: linear-gradient(90deg, rgba(0,200,255,.8), rgba(52,211,153,.7), transparent 88%);
+    opacity:.75;
+  }
 `;
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -217,7 +270,9 @@ function getVolumeFromLevel(tankId, levelCm) {
 
 const today = () => new Date().toISOString().split("T")[0];
 const fmt = (n) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(n ?? 0);
+const fmt1 = (n) => new Intl.NumberFormat("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n ?? 0);
 const fmtLiter = (n) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(n ?? 0);
+const fmtPct = (n) => `${Number(n ?? 0).toFixed(1)}%`;
 const fmtDate = (d) =>
   new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 const fmtTime = () =>
@@ -229,10 +284,11 @@ function genId(prefix) {
 
 function cardStyle(extra = {}) {
   return {
-    background: "rgba(255,255,255,0.03)",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02))",
     border: "1px solid rgba(255,255,255,0.07)",
-    borderRadius: 14,
+    borderRadius: 18,
     padding: 16,
+    boxShadow: "0 10px 26px rgba(0,0,0,0.18)",
     ...extra,
   };
 }
@@ -241,7 +297,7 @@ function btnPrimaryStyle() {
   return {
     background: "linear-gradient(135deg,#0070a8,#00c8ff)",
     border: "none",
-    borderRadius: 8,
+    borderRadius: 10,
     padding: "10px 14px",
     color: "#fff",
     fontSize: 12,
@@ -255,7 +311,7 @@ function btnGhostStyle() {
   return {
     background: "rgba(255,255,255,0.04)",
     border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: 8,
+    borderRadius: 10,
     padding: "10px 14px",
     color: "#fff",
     fontSize: 12,
@@ -268,11 +324,18 @@ function inputStyle() {
     width: "100%",
     background: "rgba(0,200,255,0.05)",
     border: "1px solid rgba(0,200,255,0.15)",
-    borderRadius: 8,
+    borderRadius: 10,
     padding: "11px 14px",
     color: "#fff",
     fontSize: 13,
   };
+}
+
+function getProductColor(product) {
+  if (product === "HSD") return "#34d399";
+  if (product === "FAME") return "#60a5fa";
+  if (product === "Biosolar") return "#fbbf24";
+  return "#00c8ff";
 }
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
@@ -428,7 +491,7 @@ const computeStockFromSoundings = () => {
   return stock;
 };
 
-// ─── UI BADGES ────────────────────────────────────────────────────────────────
+// ─── BADGES ───────────────────────────────────────────────────────────────────
 const STATUS_STYLE = {
   pending_supervisor: { bg: "rgba(251,191,36,0.12)", border: "rgba(251,191,36,0.3)", color: "#fbbf24", label: "Pending Supervisor" },
   approved_supervisor: { bg: "rgba(96,165,250,0.12)", border: "rgba(96,165,250,0.3)", color: "#60a5fa", label: "Pending Manager" },
@@ -443,13 +506,13 @@ function StatusBadge({ status }) {
     <span
       style={{
         fontSize: 10,
-        padding: "3px 8px",
-        borderRadius: 4,
+        padding: "4px 8px",
+        borderRadius: 999,
         background: s.bg,
         border: `1px solid ${s.border}`,
         color: s.color,
         fontWeight: 700,
-        letterSpacing: 0.5,
+        letterSpacing: 0.4,
       }}
     >
       {s.label}
@@ -463,8 +526,8 @@ function RoleBadge({ role }) {
     <span
       style={{
         fontSize: 9,
-        padding: "2px 7px",
-        borderRadius: 3,
+        padding: "3px 8px",
+        borderRadius: 999,
         border: `1px solid ${c}40`,
         color: c,
         background: `${c}15`,
@@ -499,13 +562,12 @@ function Login({ onLogin }) {
 
   return (
     <div
+      className="grid-bg"
       style={{
         minHeight: "100vh",
-        background: "#050810",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "'Share Tech Mono', monospace",
         position: "relative",
         overflow: "hidden",
         padding: 20,
@@ -516,41 +578,31 @@ function Login({ onLogin }) {
       <div
         style={{
           position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(rgba(0,200,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,255,0.04) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-          pointerEvents: "none",
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
           top: "20%",
           left: "50%",
           transform: "translateX(-50%)",
-          width: 600,
-          height: 600,
-          background: "radial-gradient(circle, rgba(0,200,255,0.06) 0%, transparent 70%)",
+          width: 700,
+          height: 700,
+          background: "radial-gradient(circle, rgba(0,200,255,0.08) 0%, transparent 70%)",
           pointerEvents: "none",
         }}
       />
 
-      <div style={{ width: 420, maxWidth: "100%", position: "relative" }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+      <div style={{ width: 430, maxWidth: "100%", position: "relative" }}>
+        <div style={{ textAlign: "center", marginBottom: 34 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <div
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 8,
+                width: 46,
+                height: 46,
+                borderRadius: 12,
                 background: "rgba(0,200,255,0.1)",
                 border: "1px solid rgba(0,200,255,0.3)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 20,
+                fontSize: 22,
+                boxShadow: "0 0 28px rgba(0,200,255,0.18)",
               }}
             >
               ⛽
@@ -560,7 +612,7 @@ function Login({ onLogin }) {
             style={{
               fontFamily: "'Barlow Condensed', sans-serif",
               fontWeight: 800,
-              fontSize: 40,
+              fontSize: 44,
               letterSpacing: 4,
               color: "#fff",
               lineHeight: 1,
@@ -572,9 +624,9 @@ function Login({ onLogin }) {
             style={{
               fontSize: 10,
               letterSpacing: 3,
-              color: "rgba(255,255,255,0.3)",
+              color: "rgba(255,255,255,0.34)",
               textTransform: "uppercase",
-              marginTop: 6,
+              marginTop: 8,
             }}
           >
             Oil Inventory & Sounding Control System
@@ -582,16 +634,17 @@ function Login({ onLogin }) {
         </div>
 
         <div
+          className="glass"
           style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 16,
-            padding: 32,
-            backdropFilter: "blur(10px)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 20,
+            padding: 30,
+            boxShadow: "0 24px 70px rgba(0,0,0,0.28)",
           }}
         >
           <div style={{ marginBottom: 18 }}>
-            <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: "rgba(0,200,255,0.6)", marginBottom: 8, textTransform: "uppercase" }}>
+            <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: "rgba(0,200,255,0.65)", marginBottom: 8, textTransform: "uppercase" }}>
               Username
             </label>
             <input
@@ -606,7 +659,7 @@ function Login({ onLogin }) {
           </div>
 
           <div style={{ marginBottom: 6 }}>
-            <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: "rgba(0,200,255,0.6)", marginBottom: 8, textTransform: "uppercase" }}>
+            <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: "rgba(0,200,255,0.65)", marginBottom: 8, textTransform: "uppercase" }}>
               Password
             </label>
             <input
@@ -623,13 +676,13 @@ function Login({ onLogin }) {
 
           {err && <div style={{ color: "#ef4444", fontSize: 11, marginBottom: 10 }}>{err}</div>}
 
-          <button onClick={handle} disabled={loading} className="btn-act" style={{ ...btnPrimaryStyle(), width: "100%", marginTop: 20 }}>
+          <button onClick={handle} disabled={loading} className="btn-act" style={{ ...btnPrimaryStyle(), width: "100%", marginTop: 20, padding: "13px" }}>
             {loading ? "AUTHENTICATING..." : "SIGN IN"}
           </button>
         </div>
 
-        <div style={{ marginTop: 20 }}>
-          <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 10, textTransform: "uppercase" }}>
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(255,255,255,0.22)", textAlign: "center", marginBottom: 10, textTransform: "uppercase" }}>
             Quick Login
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -642,18 +695,18 @@ function Login({ onLogin }) {
                   setErr("");
                 }}
                 style={{
-                  padding: "10px 12px",
+                  padding: "12px 12px",
                   background: "rgba(255,255,255,0.03)",
                   border: "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: 8,
+                  borderRadius: 12,
                   cursor: "pointer",
-                  transition: "all 0.15s",
+                  transition: "all .15s",
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(0,200,255,0.3)")}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)")}
               >
                 <div style={{ fontSize: 12, color: "#fff" }}>{u.username}</div>
-                <div style={{ marginTop: 3 }}>
+                <div style={{ marginTop: 5 }}>
                   <RoleBadge role={u.role} />
                 </div>
               </div>
@@ -673,7 +726,7 @@ function Modal({ title, onClose, children }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.5)",
+        background: "rgba(0,0,0,0.52)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -685,13 +738,13 @@ function Modal({ title, onClose, children }) {
       <div
         className="modal-card"
         style={{
-          width: 680,
+          width: 700,
           maxWidth: "100%",
           background: "#071126",
           border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 22,
+          borderRadius: 24,
           padding: 24,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.36)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -785,7 +838,7 @@ function NewSoundingForm({ onSubmit, onCancel, currentUser }) {
             }}
           />
 
-          <div style={{ ...cardStyle(), padding: 14, background: "rgba(255,255,255,0.025)" }}>
+          <div style={{ ...cardStyle(), padding: 14 }}>
             <div>Calculated volume (KL): <b>{volume !== null ? `${fmt(volume)} KL` : "-"}</b></div>
             <div style={{ marginTop: 6 }}>Calculated volume (Liter): <b>{volumeLiter !== null ? `${fmtLiter(volumeLiter)} L` : "-"}</b></div>
           </div>
@@ -914,6 +967,138 @@ function NewDistributionForm({ onSubmit, onCancel }) {
         >
           Submit
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── SMALL UI COMPONENTS ──────────────────────────────────────────────────────
+function KPI({ title, value, sub, accent = "cyan", icon = "◈" }) {
+  const accentColor =
+    accent === "green" ? "#34d399" :
+    accent === "yellow" ? "#fbbf24" :
+    accent === "red" ? "#ef4444" :
+    accent === "blue" ? "#60a5fa" :
+    "#00c8ff";
+
+  return (
+    <div
+      style={{
+        ...cardStyle(),
+        position: "relative",
+        minHeight: 116,
+        overflow: "hidden",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.52)", letterSpacing: 0.5 }}>{title}</div>
+          <div style={{ marginTop: 10, fontSize: 26, fontWeight: 800, lineHeight: 1.1 }}>{value}</div>
+          {sub ? <div style={{ marginTop: 8, fontSize: 11, color: "rgba(255,255,255,0.45)" }}>{sub}</div> : null}
+        </div>
+        <div
+          style={{
+            minWidth: 40,
+            height: 40,
+            borderRadius: 12,
+            border: `1px solid ${accentColor}35`,
+            background: `${accentColor}12`,
+            color: accentColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: `0 0 18px ${accentColor}15`,
+          }}
+        >
+          {icon}
+        </div>
+      </div>
+      <div className="kpi-accent" />
+    </div>
+  );
+}
+
+function SectionTitle({ title, sub, right }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div>
+        <div style={{ fontSize: 16, fontWeight: 800 }}>{title}</div>
+        {sub ? <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.48)" }}>{sub}</div> : null}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, sub, color = "#00c8ff" }) {
+  return (
+    <div
+      style={{
+        ...cardStyle({ padding: 14 }),
+        background: "linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.018))",
+      }}
+    >
+      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.48)" }}>{label}</div>
+      <div style={{ marginTop: 8, fontSize: 23, fontWeight: 800, color }}>{value}</div>
+      {sub ? <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.42)" }}>{sub}</div> : null}
+    </div>
+  );
+}
+
+function ProgressBar({ value, color, height = 12, bg = "rgba(255,255,255,0.06)" }) {
+  const safe = Math.max(0, Math.min(100, value || 0));
+  return (
+    <div style={{ height, background: bg, borderRadius: 999, overflow: "hidden" }}>
+      <div
+        className="tank-bar"
+        style={{
+          height: "100%",
+          width: `${safe}%`,
+          background: color,
+          borderRadius: 999,
+          boxShadow: "0 0 16px rgba(0,200,255,0.10)",
+        }}
+      />
+    </div>
+  );
+}
+
+function DonutRing({ value = 0, label = "", sub = "", color = "#00c8ff", size = 156 }) {
+  const safe = Math.max(0, Math.min(100, value));
+  const angle = safe * 3.6;
+  return (
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          background: `conic-gradient(${color} ${angle}deg, rgba(255,255,255,0.08) ${angle}deg 360deg)`,
+          display: "grid",
+          placeItems: "center",
+          boxShadow: `0 0 26px ${color}10 inset`,
+        }}
+      >
+        <div
+          style={{
+            width: size * 0.72,
+            height: size * 0.72,
+            borderRadius: "50%",
+            background: "#0a1324",
+            border: "1px solid rgba(255,255,255,0.06)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            padding: 8,
+          }}
+        >
+          <div style={{ fontSize: 24, fontWeight: 800 }}>{safe.toFixed(1)}%</div>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>{label}</div>
+          {sub ? <div style={{ fontSize: 10, color: "rgba(255,255,255,0.36)", marginTop: 2 }}>{sub}</div> : null}
+        </div>
       </div>
     </div>
   );
@@ -1200,36 +1385,113 @@ export default function App() {
     setSidebarOpen(false);
   };
 
+  const dashboardStats = useMemo(() => {
+    const totalStock = Object.values(stockLevels).reduce((a, b) => a + b, 0);
+    const totalCapacity = TANKS_DB.reduce((a, b) => a + b.capacity, 0);
+    const totalStockLiter = Math.round(totalStock * 1000);
+    const fillPct = totalCapacity ? (totalStock / totalCapacity) * 100 : 0;
+
+    const tanksState = TANKS_DB.map((tank) => {
+      const stock = stockLevels[tank.id] ?? 0;
+      const pct = tank.capacity ? (stock / tank.capacity) * 100 : 0;
+      let severity = "normal";
+      if (stock <= ALERT_LEVEL.volume) severity = "critical";
+      else if (stock <= DEAD_LEVEL.volume) severity = "warning";
+      return {
+        ...tank,
+        stock,
+        pct,
+        severity,
+      };
+    });
+
+    const criticalCount = tanksState.filter((t) => t.severity === "critical").length;
+    const warningCount = tanksState.filter((t) => t.severity === "warning").length;
+    const healthyCount = tanksState.filter((t) => t.severity === "normal").length;
+
+    const approvedTodaySoundings = soundings.filter(
+      (s) => s.date === filterDate && s.status === "approved_manager" && !s.noSounding
+    );
+
+    const dashboardVolumeKL = approvedTodaySoundings.reduce((a, s) => a + (s.volume || 0), 0);
+    const dashboardVolumeLiter = approvedTodaySoundings.reduce((a, s) => a + (s.volumeLiter || 0), 0);
+
+    const operatorMap = {};
+    approvedTodaySoundings.forEach((s) => {
+      const key = s.operatorName || "Unknown";
+      operatorMap[key] = (operatorMap[key] || 0) + 1;
+    });
+    const operatorStats = Object.entries(operatorMap).map(([name, count]) => ({ name, count }));
+    const maxOperatorCount = Math.max(...operatorStats.map((x) => x.count), 1);
+
+    const byProduct = {};
+    tanksState.forEach((t) => {
+      byProduct[t.product] = (byProduct[t.product] || 0) + t.stock;
+    });
+    const productStats = Object.entries(byProduct).map(([product, stock]) => ({
+      product,
+      stock,
+      pct: totalStock ? (stock / totalStock) * 100 : 0,
+      color: getProductColor(product),
+    }));
+
+    const deadStockReserve = TANKS_DB.reduce((a) => a + DEAD_LEVEL.volume, 0);
+    const usableStock = Math.max(totalStock - deadStockReserve, 0);
+    const usablePct = totalStock ? (usableStock / totalStock) * 100 : 0;
+    const reservePct = totalStock ? Math.min((deadStockReserve / totalStock) * 100, 100) : 0;
+
+    return {
+      totalStock,
+      totalCapacity,
+      totalStockLiter,
+      fillPct,
+      tanksState,
+      criticalCount,
+      warningCount,
+      healthyCount,
+      approvedTodaySoundings,
+      dashboardVolumeKL,
+      dashboardVolumeLiter,
+      operatorStats,
+      maxOperatorCount,
+      productStats,
+      deadStockReserve,
+      usableStock,
+      usablePct,
+      reservePct,
+    };
+  }, [stockLevels, soundings, filterDate]);
+
   const SidebarContent = () => (
     <>
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 26, letterSpacing: 3, lineHeight: 1 }}>
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 28, letterSpacing: 3, lineHeight: 1 }}>
           DAILY<span style={{ color: "#00c8ff" }}>SOUND</span>
         </div>
-        <div style={{ fontSize: 9, letterSpacing: 2, color: "rgba(0,200,255,0.4)", textTransform: "uppercase", marginTop: 2 }}>
+        <div style={{ fontSize: 9, letterSpacing: 3, color: "rgba(0,200,255,0.42)", textTransform: "uppercase", marginTop: 3 }}>
           Stock Control System
         </div>
       </div>
 
-      <div style={{ background: "rgba(0,200,255,0.05)", border: "1px solid rgba(0,200,255,0.12)", borderRadius: 10, padding: "12px 14px", marginBottom: 20 }}>
+      <div
+        style={{
+          background: "linear-gradient(180deg, rgba(0,200,255,0.06), rgba(0,200,255,0.03))",
+          border: "1px solid rgba(0,200,255,0.14)",
+          borderRadius: 16,
+          padding: "14px 15px",
+          marginBottom: 20,
+          boxShadow: "0 0 28px rgba(0,200,255,0.06) inset",
+        }}
+      >
         <div style={{ fontSize: 22, fontWeight: 700, color: "#00c8ff", letterSpacing: 2 }}>
           {clock.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </div>
-        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.42)", marginTop: 4 }}>
           {clock.toLocaleDateString("id-ID", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
         </div>
-        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-          <span
-            className="pulse"
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: currentSession === "morning" ? "#fbbf24" : "#60a5fa",
-              display: "inline-block",
-            }}
-          />
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1 }}>
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: currentSession === "morning" ? "#fbbf24" : "#60a5fa", display: "inline-block" }} />
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: 1 }}>
             {currentSession === "morning" ? "Morning" : "Afternoon"} · {sessionTime}
           </span>
         </div>
@@ -1237,9 +1499,9 @@ export default function App() {
 
       <div style={{ ...cardStyle(), marginBottom: 16 }}>
         <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>Logged in as</div>
-        <div style={{ fontWeight: 700 }}>{user.name}</div>
+        <div style={{ fontWeight: 800, fontSize: 15 }}>{user.name}</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>{user.dept}</div>
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 10 }}>
           <RoleBadge role={user.role} />
         </div>
       </div>
@@ -1255,10 +1517,10 @@ export default function App() {
               alignItems: "center",
               justifyContent: "space-between",
               gap: 10,
-              padding: "12px 12px",
+              padding: "13px 12px",
               background: "rgba(255,255,255,0.02)",
               border: "1px solid rgba(255,255,255,0.05)",
-              borderRadius: 10,
+              borderRadius: 12,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1268,8 +1530,8 @@ export default function App() {
             {!sidebarCollapsed && item.badge > 0 && (
               <span
                 style={{
-                  minWidth: 18,
-                  height: 18,
+                  minWidth: 20,
+                  height: 20,
                   borderRadius: 999,
                   background: "#ef4444",
                   color: "#fff",
@@ -1301,156 +1563,292 @@ export default function App() {
   );
 
   const renderDashboard = () => {
-    const totalStock = Object.values(stockLevels).reduce((a, b) => a + b, 0);
-    const totalCapacity = TANKS_DB.reduce((a, b) => a + b.capacity, 0);
-    const totalStockLiter = Math.round(totalStock * 1000);
-
-    const approvedTodaySoundings = soundings.filter(
-      (s) => s.date === filterDate && s.status === "approved_manager" && !s.noSounding
-    );
-
-    const dashboardVolumeKL = approvedTodaySoundings.reduce((a, s) => a + (s.volume || 0), 0);
-    const dashboardVolumeLiter = approvedTodaySoundings.reduce((a, s) => a + (s.volumeLiter || 0), 0);
-
-    const operatorMap = {};
-    approvedTodaySoundings.forEach((s) => {
-      const key = s.operatorName || "Unknown";
-      operatorMap[key] = (operatorMap[key] || 0) + 1;
-    });
-
-    const operatorStats = Object.entries(operatorMap).map(([name, count]) => ({ name, count }));
-    const maxOperatorCount = Math.max(...operatorStats.map((x) => x.count), 1);
+    const {
+      totalStock,
+      totalCapacity,
+      totalStockLiter,
+      fillPct,
+      tanksState,
+      criticalCount,
+      warningCount,
+      healthyCount,
+      approvedTodaySoundings,
+      dashboardVolumeKL,
+      dashboardVolumeLiter,
+      operatorStats,
+      maxOperatorCount,
+      productStats,
+      deadStockReserve,
+      usableStock,
+      usablePct,
+      reservePct,
+    } = dashboardStats;
 
     return (
       <div style={{ display: "grid", gap: 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, 1fr)", gap: 16 }}>
-          <div style={cardStyle()}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Total Tanks</div>
-            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 700 }}>{TANKS_DB.length}</div>
-          </div>
+          <KPI title="Total Tanks" value={TANKS_DB.length} sub={`${healthyCount} normal · ${warningCount} warning · ${criticalCount} critical`} accent="blue" icon="▦" />
+          <KPI title="Current Stock" value={`${fmt(totalStock)} KL`} sub={`${fmtLiter(totalStockLiter)} L`} accent="cyan" icon="◉" />
+          <KPI title="Total Capacity" value={`${fmt(totalCapacity)} KL`} sub={`Filled ${fmtPct(fillPct)}`} accent="green" icon="⬒" />
+          <KPI title="Pending Approvals" value={pendingCount} sub="Records waiting action" accent={pendingCount > 0 ? "yellow" : "green"} icon="✓" />
+        </div>
 
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.25fr .95fr", gap: 16 }}>
           <div style={cardStyle()}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Current Stock</div>
-            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 700 }}>{fmt(totalStock)} KL</div>
-            <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-              {fmtLiter(totalStockLiter)} L
+            <SectionTitle
+              title="Inventory Stock Overview"
+              sub={`Live inventory composition and stock health for ${fmtDate(filterDate)}`}
+              right={
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                  style={{ ...inputStyle(), width: 170 }}
+                />
+              }
+            />
+
+            <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
+              <MiniStat label="Approved Soundings" value={approvedTodaySoundings.length} sub="Approved manager status" color="#ffffff" />
+              <MiniStat label="Daily Volume (KL)" value={fmt(dashboardVolumeKL)} sub="Approved sounding total" color="#00c8ff" />
+              <MiniStat label="Daily Volume (Liter)" value={fmtLiter(dashboardVolumeLiter)} sub="Converted from KL" color="#34d399" />
+            </div>
+
+            <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+              <div style={{ ...cardStyle(), padding: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 14 }}>Overall Fill Rate</div>
+                <DonutRing
+                  value={fillPct}
+                  label="Inventory Fill"
+                  sub={`${fmt(totalStock)} / ${fmt(totalCapacity)} KL`}
+                  color="#00c8ff"
+                  size={isMobile ? 150 : 172}
+                />
+                <div style={{ marginTop: 14, fontSize: 11, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
+                  Percentage of total tank capacity currently occupied by stock.
+                </div>
+              </div>
+
+              <div style={{ ...cardStyle(), padding: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Stock Health Summary</div>
+
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                      <span>Healthy Tanks</span>
+                      <span>{healthyCount}</span>
+                    </div>
+                    <ProgressBar
+                      value={TANKS_DB.length ? (healthyCount / TANKS_DB.length) * 100 : 0}
+                      color="linear-gradient(90deg,#34d399,#4ade80)"
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                      <span>Warning Tanks</span>
+                      <span>{warningCount}</span>
+                    </div>
+                    <ProgressBar
+                      value={TANKS_DB.length ? (warningCount / TANKS_DB.length) * 100 : 0}
+                      color="linear-gradient(90deg,#f59e0b,#fbbf24)"
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                      <span>Critical Tanks</span>
+                      <span>{criticalCount}</span>
+                    </div>
+                    <ProgressBar
+                      value={TANKS_DB.length ? (criticalCount / TANKS_DB.length) * 100 : 0}
+                      color="linear-gradient(90deg,#ef4444,#fb7185)"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, padding: 12, borderRadius: 12, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.46)" }}>Dead Stock Reserve Benchmark</div>
+                  <div style={{ marginTop: 6, fontSize: 20, fontWeight: 800 }}>{fmt(deadStockReserve)} KL</div>
+                  <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.42)" }}>
+                    Based on {TANKS_DB.length} tanks × {DEAD_LEVEL.volume} KL reserve threshold.
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           <div style={cardStyle()}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Capacity</div>
-            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 700 }}>{fmt(totalCapacity)} KL</div>
-          </div>
+            <SectionTitle title="Product Composition" sub="Inventory share by product type" />
 
-          <div style={cardStyle()}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Pending Approvals</div>
-            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 700 }}>{pendingCount}</div>
+            <div style={{ marginTop: 16, display: "grid", gap: 14 }}>
+              {productStats.map((p) => (
+                <div key={p.product}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 7 }}>
+                    <span>{p.product}</span>
+                    <span>{fmt(p.stock)} KL · {fmtPct(p.pct)}</span>
+                  </div>
+                  <ProgressBar
+                    value={p.pct}
+                    color={`linear-gradient(90deg, ${p.color}, ${p.color}aa)`}
+                    height={13}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 18, ...cardStyle({ padding: 14 }) }}>
+              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Usable vs Reserve Stock</div>
+
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                  <span>Usable Stock</span>
+                  <span>{fmt(usableStock)} KL · {fmtPct(usablePct)}</span>
+                </div>
+                <ProgressBar
+                  value={usablePct}
+                  color="linear-gradient(90deg,#00c8ff,#34d399)"
+                  height={14}
+                />
+              </div>
+
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                  <span>Reserve / Dead Stock</span>
+                  <span>{fmt(deadStockReserve)} KL · {fmtPct(reservePct)}</span>
+                </div>
+                <ProgressBar
+                  value={reservePct}
+                  color="linear-gradient(90deg,#f59e0b,#fbbf24)"
+                  height={14}
+                />
+              </div>
+
+              <div style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.42)" }}>
+                This helps distinguish operationally usable stock from protected reserve/dead stock threshold.
+              </div>
+            </div>
           </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr", gap: 16 }}>
           <div style={cardStyle()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 10, flexWrap: "wrap" }}>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>Dashboard Information</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
-                  Approved sounding summary for {fmtDate(filterDate)}
-                </div>
-              </div>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                style={{ ...inputStyle(), width: 170 }}
-              />
-            </div>
+            <SectionTitle title="Tank Fill Graphic" sub="Per-tank inventory level against capacity" />
 
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12, marginBottom: 14 }}>
-              <div style={cardStyle({ padding: 12 })}>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Approved Soundings</div>
-                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{approvedTodaySoundings.length}</div>
-              </div>
+            <div style={{ marginTop: 16, display: "grid", gap: 14 }}>
+              {tanksState.map((tank) => {
+                const productColor = getProductColor(tank.product);
 
-              <div style={cardStyle({ padding: 12 })}>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Total Volume (KL)</div>
-                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{fmt(dashboardVolumeKL)}</div>
-              </div>
-
-              <div style={cardStyle({ padding: 12 })}>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Total Volume (Liter)</div>
-                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{fmtLiter(dashboardVolumeLiter)}</div>
-              </div>
-            </div>
-
-            <div style={{ ...cardStyle(), padding: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Volume Graphic by Tank</div>
-              <div style={{ display: "grid", gap: 12 }}>
-                {TANKS_DB.map((tank) => {
-                  const rec = approvedTodaySoundings.find((s) => s.tankId === tank.id);
-                  const volKL = rec?.volume || 0;
-                  const pct = Math.max(0, Math.min(100, (volKL / tank.capacity) * 100));
-
-                  return (
-                    <div key={tank.id}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
-                        <span>{tank.name}</span>
-                        <span>{fmt(volKL)} KL / {fmtLiter(rec?.volumeLiter || 0)} L</span>
+                return (
+                  <div
+                    key={tank.id}
+                    style={{
+                      padding: 14,
+                      borderRadius: 14,
+                      border: "1px solid rgba(255,255,255,0.05)",
+                      background: "linear-gradient(180deg, rgba(255,255,255,0.022), rgba(255,255,255,0.01))",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontWeight: 800 }}>{tank.name}</div>
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4 }}>
+                          {tank.product} · Capacity {fmt(tank.capacity)} KL
+                        </div>
                       </div>
-                      <div style={{ height: 10, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                        <div
-                          className="tank-bar"
-                          style={{
-                            height: "100%",
-                            width: `${pct}%`,
-                            background: "linear-gradient(90deg,#00c8ff,#34d399)",
-                            borderRadius: 999,
-                          }}
-                        />
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 800 }}>{fmt(tank.stock)} KL</div>
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4 }}>
+                          {fmtLiter(Math.round(tank.stock * 1000))} L
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <ProgressBar
+                        value={tank.pct}
+                        color={`linear-gradient(90deg, ${productColor}, ${productColor}cc)`}
+                        height={14}
+                      />
+                    </div>
+
+                    <div style={{ marginTop: 9, display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+                      <span>Fill Ratio</span>
+                      <span>{fmtPct(tank.pct)}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           <div style={cardStyle()}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Operator Graphic</div>
+            <SectionTitle title="Operator Activity Graphic" sub={`Approved sounding activity on ${fmtDate(filterDate)}`} />
 
             {operatorStats.length === 0 ? (
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>No approved sounding data for selected date.</div>
+              <div style={{ marginTop: 16, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                No approved sounding data for selected date.
+              </div>
             ) : (
-              <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ marginTop: 16, display: "grid", gap: 14 }}>
                 {operatorStats.map((op) => {
                   const width = (op.count / maxOperatorCount) * 100;
                   return (
                     <div key={op.name}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 7 }}>
                         <span>{op.name}</span>
                         <span>{op.count} sounding</span>
                       </div>
-                      <div style={{ height: 12, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                        <div
-                          className="tank-bar"
-                          style={{
-                            height: "100%",
-                            width: `${width}%`,
-                            background: "linear-gradient(90deg,#60a5fa,#00c8ff)",
-                            borderRadius: 999,
-                          }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={width}
+                        color="linear-gradient(90deg,#60a5fa,#00c8ff)"
+                        height={14}
+                      />
                     </div>
                   );
                 })}
               </div>
             )}
+
+            <div style={{ marginTop: 18, ...cardStyle({ padding: 14 }) }}>
+              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Daily Sounding Summary</div>
+              <div style={{ display: "grid", gap: 10 }}>
+                {approvedTodaySoundings.map((s) => (
+                  <div
+                    key={s.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.05)",
+                      background: "rgba(255,255,255,0.018)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>{getTank(s.tankId)?.name}</div>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.42)", marginTop: 3 }}>
+                        {s.operatorName} · {s.session}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>{fmt(s.volume)} KL</div>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.42)", marginTop: 3 }}>
+                        {fmtLiter(s.volumeLiter)} L
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
         <div style={cardStyle()}>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Tank Status</div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 14 }}>
+          <SectionTitle title="Tank Status Panel" sub="Live tank stock, alert threshold, and latest sounding reference" />
+
+          <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16 }}>
             {TANKS_DB.map((tank) => {
               const latest = getLatestApprovedSounding(tank.id);
               const volume = stockLevels[tank.id] ?? 0;
@@ -1467,11 +1865,11 @@ export default function App() {
               }
 
               return (
-                <div key={tank.id} style={{ ...cardStyle(), padding: 14 }}>
+                <div key={tank.id} style={{ ...cardStyle(), padding: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                     <div>
-                      <div style={{ fontWeight: 700 }}>{tank.name}</div>
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 3 }}>
+                      <div style={{ fontWeight: 800, fontSize: 15 }}>{tank.name}</div>
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
                         Product: {tank.product}
                       </div>
                     </div>
@@ -1481,30 +1879,42 @@ export default function App() {
                         color,
                         border: `1px solid ${color}40`,
                         background: `${color}15`,
-                        padding: "4px 8px",
+                        padding: "4px 9px",
                         borderRadius: 999,
                         height: "fit-content",
+                        fontWeight: 800,
                       }}
                     >
                       {flag}
                     </span>
                   </div>
 
-                  <div style={{ marginTop: 12, height: 10, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                    <div className="tank-bar" style={{ height: "100%", width: `${pct}%`, background: color }} />
+                  <div style={{ marginTop: 14 }}>
+                    <ProgressBar value={pct} color={`linear-gradient(90deg, ${color}, ${color}cc)`} height={13} />
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 12 }}>
                     <span>{fmt(volume)} KL</span>
-                    <span>{pct.toFixed(1)}%</span>
+                    <span>{fmtPct(pct)}</span>
                   </div>
 
                   <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
                     {fmtLiter(Math.round(volume * 1000))} L
                   </div>
 
-                  <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-                    Latest sounding: {latest ? `${fmtDate(latest.date)} ${latest.session}` : "-"}
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)", display: "grid", gap: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.48)" }}>
+                      <span>Dead Level Threshold</span>
+                      <span>{fmt(DEAD_LEVEL.volume)} KL</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.48)" }}>
+                      <span>Critical Alert Threshold</span>
+                      <span>{fmt(ALERT_LEVEL.volume)} KL</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.48)" }}>
+                      <span>Latest Sounding</span>
+                      <span>{latest ? `${fmtDate(latest.date)} ${latest.session}` : "-"}</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -1518,18 +1928,20 @@ export default function App() {
   const renderSounding = () => (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ ...cardStyle(), display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Sounding Records</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>Daily tank sounding submissions</div>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} style={{ ...inputStyle(), width: 170 }} />
-          {perm.createSounding && (
-            <button onClick={() => setModal("new_sounding")} style={btnPrimaryStyle()}>
-              + New Sounding
-            </button>
-          )}
-        </div>
+        <SectionTitle
+          title="Sounding Records"
+          sub="Daily tank sounding submissions"
+          right={
+            <div style={{ display: "flex", gap: 10 }}>
+              <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} style={{ ...inputStyle(), width: 170 }} />
+              {perm.createSounding && (
+                <button onClick={() => setModal("new_sounding")} style={btnPrimaryStyle()}>
+                  + New Sounding
+                </button>
+              )}
+            </div>
+          }
+        />
       </div>
 
       <div style={cardStyle()}>
@@ -1541,10 +1953,10 @@ export default function App() {
           {soundings
             .filter((s) => s.date === filterDate)
             .map((s) => (
-              <div key={s.id} className="row" style={{ padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", display: "grid", gap: 8 }}>
+              <div key={s.id} className="row" style={{ padding: 14, borderRadius: 14, border: "1px solid rgba(255,255,255,0.05)", display: "grid", gap: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                   <div>
-                    <div style={{ fontWeight: 700 }}>{getTank(s.tankId)?.name}</div>
+                    <div style={{ fontWeight: 800 }}>{getTank(s.tankId)?.name}</div>
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
                       {fmtDate(s.date)} · {s.session} · {s.time}
                     </div>
@@ -1552,7 +1964,7 @@ export default function App() {
                   <StatusBadge status={s.status} />
                 </div>
 
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.88)" }}>
                   {s.noSounding ? (
                     <>No sounding — {s.reason || "-"}</>
                   ) : (
@@ -1600,24 +2012,26 @@ export default function App() {
   const renderCargo = () => (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ ...cardStyle(), display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Cargo Activity</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>Loading and discharge records</div>
-        </div>
-        {perm.createCargo && (
-          <button onClick={() => setModal("new_cargo")} style={btnPrimaryStyle()}>
-            + New Cargo
-          </button>
-        )}
+        <SectionTitle
+          title="Cargo Activity"
+          sub="Loading and discharge records"
+          right={
+            perm.createCargo ? (
+              <button onClick={() => setModal("new_cargo")} style={btnPrimaryStyle()}>
+                + New Cargo
+              </button>
+            ) : null
+          }
+        />
       </div>
 
       <div style={cardStyle()}>
         <div style={{ display: "grid", gap: 10 }}>
           {cargo.map((c) => (
-            <div key={c.id} className="row" style={{ padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", display: "grid", gap: 8 }}>
+            <div key={c.id} className="row" style={{ padding: 14, borderRadius: 14, border: "1px solid rgba(255,255,255,0.05)", display: "grid", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontWeight: 700 }}>{getTank(c.tankId)?.name}</div>
+                  <div style={{ fontWeight: 800 }}>{getTank(c.tankId)?.name}</div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
                     {fmtDate(c.date)} · {c.type === "in" ? "Cargo In" : "Cargo Out"}
                   </div>
@@ -1667,24 +2081,26 @@ export default function App() {
   const renderDistribution = () => (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ ...cardStyle(), display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Distribution Activity</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>Fuel issued to recipient / vehicle</div>
-        </div>
-        {perm.createDistrib && (
-          <button onClick={() => setModal("new_distribution")} style={btnPrimaryStyle()}>
-            + New Distribution
-          </button>
-        )}
+        <SectionTitle
+          title="Distribution Activity"
+          sub="Fuel issued to recipient / vehicle"
+          right={
+            perm.createDistrib ? (
+              <button onClick={() => setModal("new_distribution")} style={btnPrimaryStyle()}>
+                + New Distribution
+              </button>
+            ) : null
+          }
+        />
       </div>
 
       <div style={cardStyle()}>
         <div style={{ display: "grid", gap: 10 }}>
           {distributions.map((d) => (
-            <div key={d.id} className="row" style={{ padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", display: "grid", gap: 8 }}>
+            <div key={d.id} className="row" style={{ padding: 14, borderRadius: 14, border: "1px solid rgba(255,255,255,0.05)", display: "grid", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontWeight: 700 }}>{getTank(d.tankId)?.name}</div>
+                  <div style={{ fontWeight: 800 }}>{getTank(d.tankId)?.name}</div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
                     {fmtDate(d.date)} · {d.time}
                   </div>
@@ -1738,11 +2154,11 @@ export default function App() {
   const renderStock = () => (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ ...cardStyle(), display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Stock Control</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>Opening, movement, and closing control by date</div>
-        </div>
-        <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} style={{ ...inputStyle(), width: 170 }} />
+        <SectionTitle
+          title="Stock Control"
+          sub="Opening, movement, and closing control by date"
+          right={<input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} style={{ ...inputStyle(), width: 170 }} />}
+        />
       </div>
 
       <div style={{ display: "grid", gap: 12 }}>
@@ -1752,7 +2168,7 @@ export default function App() {
             <div key={tank.id} style={cardStyle()}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <div style={{ fontWeight: 700 }}>{tank.name}</div>
+                  <div style={{ fontWeight: 800 }}>{tank.name}</div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
                     Product: {tank.product}
                   </div>
@@ -1765,30 +2181,12 @@ export default function App() {
               </div>
 
               <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(6, 1fr)", gap: 10 }}>
-                <div style={cardStyle({ padding: 12 })}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Opening</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{fmt(ctrl.opening)} KL</div>
-                </div>
-                <div style={cardStyle({ padding: 12 })}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Morning</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{ctrl.morning != null ? `${fmt(ctrl.morning)} KL` : "-"}</div>
-                </div>
-                <div style={cardStyle({ padding: 12 })}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Cargo In</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{fmt(ctrl.cargoIn)} KL</div>
-                </div>
-                <div style={cardStyle({ padding: 12 })}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Cargo Out</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{fmt(ctrl.cargoOut)} KL</div>
-                </div>
-                <div style={cardStyle({ padding: 12 })}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Distrib Out</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{fmt(ctrl.distOut)} KL</div>
-                </div>
-                <div style={cardStyle({ padding: 12 })}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Closing</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{ctrl.closing != null ? `${fmt(ctrl.closing)} KL` : "-"}</div>
-                </div>
+                <MiniStat label="Opening" value={`${fmt(ctrl.opening)} KL`} color="#ffffff" />
+                <MiniStat label="Morning" value={ctrl.morning != null ? `${fmt(ctrl.morning)} KL` : "-"} color="#00c8ff" />
+                <MiniStat label="Cargo In" value={`${fmt(ctrl.cargoIn)} KL`} color="#34d399" />
+                <MiniStat label="Cargo Out" value={`${fmt(ctrl.cargoOut)} KL`} color="#fbbf24" />
+                <MiniStat label="Distrib Out" value={`${fmt(ctrl.distOut)} KL`} color="#60a5fa" />
+                <MiniStat label="Closing" value={ctrl.closing != null ? `${fmt(ctrl.closing)} KL` : "-"} color="#a78bfa" />
               </div>
             </div>
           );
@@ -1800,10 +2198,10 @@ export default function App() {
   const renderApproval = () => (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={cardStyle()}>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Pending Approvals</div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-          Records waiting for your role approval
-        </div>
+        <SectionTitle
+          title="Pending Approvals"
+          sub="Records waiting for your role approval"
+        />
       </div>
 
       <div style={cardStyle()}>
@@ -1811,10 +2209,10 @@ export default function App() {
           {[...soundings, ...cargo, ...distributions]
             .filter(isAwaitingMe)
             .map((item) => (
-              <div key={item.id} style={{ padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div key={item.id} style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                   <div>
-                    <div style={{ fontWeight: 700 }}>{item.id}</div>
+                    <div style={{ fontWeight: 800 }}>{item.id}</div>
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
                       Submitted by {item.submittedBy}
                     </div>
@@ -1835,12 +2233,9 @@ export default function App() {
   const renderBlend = () => (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={cardStyle()}>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>Blending Setup</div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 14 }}>
-          Basic placeholder for product blend setup
-        </div>
+        <SectionTitle title="Blending Setup" sub="Basic placeholder for product blend setup" />
 
-        <div style={{ display: "grid", gap: 12, maxWidth: 420 }}>
+        <div style={{ marginTop: 14, display: "grid", gap: 12, maxWidth: 420 }}>
           <label style={{ fontSize: 12 }}>T3 Product</label>
           <select value={t3Product} onChange={(e) => setT3Product(e.target.value)} style={inputStyle()}>
             <option value="FAME" style={{ color: "#000" }}>FAME</option>
@@ -1854,26 +2249,22 @@ export default function App() {
 
   const renderReport = () => (
     <div style={cardStyle()}>
-      <div style={{ fontSize: 16, fontWeight: 700 }}>Reports</div>
-      <div style={{ marginTop: 8, color: "rgba(255,255,255,0.6)" }}>
-        Total sounding records: {soundings.length}
-      </div>
-      <div style={{ marginTop: 6, color: "rgba(255,255,255,0.6)" }}>
-        Total cargo records: {cargo.length}
-      </div>
-      <div style={{ marginTop: 6, color: "rgba(255,255,255,0.6)" }}>
-        Total distribution records: {distributions.length}
+      <SectionTitle title="Reports" sub="Quick overview of stored records" />
+      <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
+        <div style={{ color: "rgba(255,255,255,0.62)" }}>Total sounding records: {soundings.length}</div>
+        <div style={{ color: "rgba(255,255,255,0.62)" }}>Total cargo records: {cargo.length}</div>
+        <div style={{ color: "rgba(255,255,255,0.62)" }}>Total distribution records: {distributions.length}</div>
       </div>
     </div>
   );
 
   const renderUsers = () => (
     <div style={cardStyle()}>
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Users</div>
-      <div style={{ display: "grid", gap: 10 }}>
+      <SectionTitle title="Users" sub="Registered demo accounts" />
+      <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
         {USERS_DB.map((u) => (
-          <div key={u.id} style={{ padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ fontWeight: 700 }}>{u.name}</div>
+          <div key={u.id} style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ fontWeight: 800 }}>{u.name}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
               {u.username} · {u.dept}
             </div>
@@ -1912,18 +2303,19 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#050810", color: "#fff", fontFamily: "'Share Tech Mono', monospace" }}>
+    <div className="grid-bg" style={{ minHeight: "100vh", color: "#fff", fontFamily: "'Share Tech Mono', monospace" }}>
       <style>{GLOBAL_CSS}</style>
 
       <div style={{ display: "flex", minHeight: "100vh" }}>
         {!isMobile && (
           <aside
             style={{
-              width: sidebarCollapsed ? 88 : 280,
+              width: sidebarCollapsed ? 88 : 300,
               transition: "width 0.2s ease",
               padding: 18,
               borderRight: "1px solid rgba(255,255,255,0.06)",
-              background: "rgba(255,255,255,0.02)",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))",
+              backdropFilter: "blur(10px)",
             }}
           >
             <SidebarContent />
@@ -1958,7 +2350,7 @@ export default function App() {
           <div
             className="sidebar-slide"
             style={{
-              width: 280,
+              width: 290,
               maxWidth: "86vw",
               height: "100%",
               background: "#0b1220",
@@ -1981,7 +2373,7 @@ export default function App() {
             bottom: 0,
             padding: 10,
             borderTop: "1px solid rgba(255,255,255,0.08)",
-            background: "rgba(5,8,16,0.92)",
+            background: "rgba(5,8,16,0.94)",
             backdropFilter: "blur(10px)",
             display: "flex",
             gap: 6,
@@ -2007,11 +2399,7 @@ export default function App() {
 
       {modal === "new_sounding" && (
         <Modal title="New Sounding" onClose={() => setModal(null)}>
-          <NewSoundingForm
-            onSubmit={submitSounding}
-            onCancel={() => setModal(null)}
-            currentUser={user}
-          />
+          <NewSoundingForm onSubmit={submitSounding} onCancel={() => setModal(null)} currentUser={user} />
         </Modal>
       )}
 
@@ -2038,7 +2426,7 @@ export default function App() {
             border: `1px solid ${toast.type === "warn" ? "rgba(239,68,68,0.3)" : "rgba(52,211,153,0.3)"}`,
             color: toast.type === "warn" ? "#ef4444" : "#34d399",
             padding: "12px 14px",
-            borderRadius: 10,
+            borderRadius: 12,
             zIndex: 60,
           }}
         >
