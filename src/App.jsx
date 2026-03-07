@@ -57,6 +57,10 @@ const TANKS_DB = [
   { id:"T4", name:"Tank 4 Biosolar", type:"shore", capacity:110,  product:"Biosolar" },
 ];
 
+// Dead level thresholds (same for all tanks per work instruction)
+const DEAD_LEVEL  = { cm:30, volume:150 };  // warning — dead stock level
+const ALERT_LEVEL = { cm:10, volume:54  };  // critical alert level
+
 const today = () => new Date().toISOString().split("T")[0];
 const fmt = n => new Intl.NumberFormat("id-ID",{maximumFractionDigits:2}).format(n);
 const fmtTime = () => new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
@@ -66,11 +70,10 @@ function genId(prefix) { return prefix + "_" + Date.now() + "_" + Math.floor(Mat
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 const SEED_SOUNDINGS = [
-  { id:"S001", tankId:"T1", date:"2026-03-05", session:"morning",   level:4.25, volume:2980, temp:42.5, density:0.850, status:"approved_manager",  submittedBy:"kim", supervisorApproval:"approved", managerApproval:"approved", note:"Normal reading" },
-  { id:"S002", tankId:"T1", date:"2026-03-05", session:"afternoon", level:3.92, volume:2740, temp:44.1, density:0.851, status:"approved_manager",  submittedBy:"kim", supervisorApproval:"approved", managerApproval:"approved", note:"" },
-  { id:"S003", tankId:"T2", date:"2026-03-05", session:"morning",   level:3.10, volume:1850, temp:41.0, density:0.880, status:"pending_supervisor", submittedBy:"kim", supervisorApproval:"pending",  managerApproval:"pending",  note:"" },
-  { id:"S004", tankId:"T4", date:"2026-03-06", session:"morning",   level:3.50, volume:2200, temp:38.5, density:0.890, status:"pending_supervisor", submittedBy:"kim", supervisorApproval:"pending",  managerApproval:"pending",  note:"" },
-  { id:"S005", tankId:"T3", date:"2026-03-06", session:"morning",   level:2.80, volume:1960, temp:35.2, density:0.850, status:"approved_supervisor", submittedBy:"kim", supervisorApproval:"approved", managerApproval:"pending", note:"" },
+  { id:"S001", tankId:"T1", date:"2026-03-07", session:"morning", level:2.451, volume:1655.196, temp:30, density:0.850, status:"approved_manager", submittedBy:"nikco",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S002", tankId:"T2", date:"2026-03-07", session:"morning", level:8.254, volume:925.429,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S003", tankId:"T3", date:"2026-03-07", session:"morning", level:5.624, volume:781.116,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nicko",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S004", tankId:"T4", date:"2026-03-07", session:"morning", level:5.155, volume:17.958,   temp:31, density:0.890, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
 ];
 
 const SEED_CARGO = [
@@ -198,7 +201,7 @@ export default function App() {
   const [filterDate, setFilterDate] = useState(today());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [t3Product, setT3Product] = useState("HSD");
+  const [t3Product, setT3Product] = useState("FAME");
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
 
   useEffect(() => {
@@ -318,6 +321,7 @@ export default function App() {
     { id:"cargo",     icon:"⇄", label:"Cargo" },
     { id:"stock",     icon:"▦", label:"Stock" },
     { id:"approval",  icon:"✓", label:"Approvals", badge: pendingCount },
+    { id:"blend",     icon:"⚗", label:"Blending" },
     ...(perm.viewAll ? [{ id:"report", icon:"◉", label:"Reports" }] : []),
     ...(perm.manageUsers ? [{ id:"users", icon:"⊕", label:"Users" }] : []),
   ];
@@ -460,6 +464,7 @@ export default function App() {
           {tab==="cargo" && <CargoTab user={user} perm={perm} cargo={cargo} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"cargo"})} onApprove={approveCargo} onReject={rejectCargo} isMobile={isMobile} />}
           {tab==="stock" && <StockControlTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} perm={perm} onClose={closeStockForDay} closingStock={closingStock} isMobile={isMobile} t3Product={t3Product} />}
           {tab==="approval" && <ApprovalTab user={user} perm={perm} soundings={soundings} cargo={cargo} onApproveSounding={approveSounding} onRejectSounding={rejectSounding} onApproveCargo={approveCargo} onRejectCargo={rejectCargo} isMobile={isMobile} />}
+          {tab==="blend"  && <BlendingTab tanks={TANKS_DB} stockLevels={stockLevels} t3Product={t3Product} />}
           {tab==="report" && perm.viewAll && <ReportTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} isMobile={isMobile} t3Product={t3Product} />}
           {tab==="users" && perm.manageUsers && <UsersTab />}
         </div>
@@ -559,8 +564,18 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
             const pct = Math.min(100, Math.round((cur/tank.capacity)*100));
             const barColor = pct > 70 ? "#34d399" : pct > 30 ? "#00c8ff" : pct > 10 ? "#fbbf24" : "#ef4444";
             const typeIcon = { ship:"🚢", shore:"🏭", depot:"⛽" }[tank.type] || "▦";
+            const isCritical = cur <= ALERT_LEVEL.volume;
+            const isWarning  = !isCritical && cur <= DEAD_LEVEL.volume;
             return (
-              <div key={tank.id} style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px" }}>
+              <div key={tank.id} style={{ background: isCritical?"rgba(239,68,68,0.06)":isWarning?"rgba(251,191,36,0.06)":"rgba(255,255,255,0.03)", border:`1px solid ${isCritical?"rgba(239,68,68,0.35)":isWarning?"rgba(251,191,36,0.25)":"rgba(255,255,255,0.07)"}`, borderRadius:12, padding:"16px 18px" }}>
+                {(isCritical||isWarning) && (
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, padding:"6px 10px", borderRadius:7, background:isCritical?"rgba(239,68,68,0.12)":"rgba(251,191,36,0.1)", border:`1px solid ${isCritical?"rgba(239,68,68,0.3)":"rgba(251,191,36,0.25)"}` }}>
+                    <span className={isCritical?"blink":""} style={{ fontSize:13 }}>{isCritical?"🚨":"⚠️"}</span>
+                    <span style={{ fontSize:10, fontWeight:800, color:isCritical?"#ef4444":"#fbbf24", letterSpacing:0.5 }}>
+                      {isCritical?`CRITICAL — Below ${ALERT_LEVEL.cm}cm / ${ALERT_LEVEL.volume} KL alert level`:`WARNING — Below ${DEAD_LEVEL.cm}cm / ${DEAD_LEVEL.volume} KL dead level`}
+                    </span>
+                  </div>
+                )}
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
                   <div>
                     <div style={{ fontSize:11, fontWeight:600, color:"#fff" }}>{typeIcon} {tank.name}</div>
@@ -884,15 +899,21 @@ function StockControlTab({ tanks, soundings, cargo, stockLevels, getControlStock
           const diff = ctrl.afternoon !== null ? (ctrl.afternoon - actual) : null;
           const hasClosing = closingStock[`${tank.id}_${filterDate}`];
           const typeIcon = { ship:"🚢", shore:"🏭", depot:"⛽" }[tank.type];
+          const isCritical = actual <= ALERT_LEVEL.volume;
+          const isWarning  = !isCritical && actual <= DEAD_LEVEL.volume;
 
           return (
-            <div key={tank.id} style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
+            <div key={tank.id} style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${isCritical?"rgba(239,68,68,0.35)":isWarning?"rgba(251,191,36,0.25)":"rgba(255,255,255,0.07)"}`, borderRadius:12, overflow:"hidden" }}>
               {/* Tank header */}
-              <div style={{ padding:"14px 20px", background:"rgba(0,200,255,0.04)", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ padding:"14px 20px", background: isCritical?"rgba(239,68,68,0.06)":isWarning?"rgba(251,191,36,0.05)":"rgba(0,200,255,0.04)", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                   <span style={{ fontSize:18 }}>{typeIcon}</span>
                   <div>
-                    <div style={{ fontSize:14, fontWeight:600, color:"#fff" }}>{tank.name}</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <div style={{ fontSize:14, fontWeight:600, color:"#fff" }}>{tank.name}</div>
+                      {isCritical && <span className="blink" style={{ fontSize:9, fontWeight:800, padding:"2px 7px", borderRadius:4, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.4)", color:"#ef4444", letterSpacing:0.5 }}>🚨 CRITICAL</span>}
+                      {isWarning  && <span style={{ fontSize:9, fontWeight:800, padding:"2px 7px", borderRadius:4, background:"rgba(251,191,36,0.12)", border:"1px solid rgba(251,191,36,0.3)", color:"#fbbf24", letterSpacing:0.5 }}>⚠ DEAD LEVEL</span>}
+                    </div>
                     <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{tank.id==="T3" ? t3Product : tank.product} · Cap: {fmt(tank.capacity)} KL</div>
                   </div>
                 </div>
@@ -1210,6 +1231,167 @@ function ReportTab({ tanks, soundings, cargo, stockLevels, t3Product }) {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── BLENDING CALCULATOR ─────────────────────────────────────────────────────
+const BLEND_GRADES = [
+  { label:"B30", fame:30 }, { label:"B35", fame:35 }, { label:"B40", fame:40 },
+  { label:"B50", fame:50 }, { label:"B100", fame:100 },
+];
+
+function BlendingTab({ tanks, stockLevels, t3Product }) {
+  const [targetVol, setTargetVol] = useState("");
+  const [grade, setGrade]         = useState("B40");
+  const [result, setResult]       = useState(null);
+
+  const hsdTank  = tanks.find(t => t.id === "T1");
+  const fameTank = tanks.find(t => t.id === "T2");
+  const t3Tank   = tanks.find(t => t.id === "T3");
+
+  const hsdStock  = stockLevels["T1"] || 0;
+  const fameStock = (stockLevels["T2"] || 0) + (t3Product === "FAME" ? (stockLevels["T3"] || 0) : 0);
+  const t3Contributes = t3Product === "FAME";
+
+  const calculate = () => {
+    const vol = parseFloat(targetVol);
+    if (!vol || vol <= 0) return alert("Enter a valid target volume (KL)");
+    const sel = BLEND_GRADES.find(b => b.label === grade);
+    const famePct = sel.fame / 100;
+    const hsdPct  = 1 - famePct;
+    const fameNeeded = parseFloat((vol * famePct).toFixed(3));
+    const hsdNeeded  = parseFloat((vol * hsdPct).toFixed(3));
+    const fameOk  = fameStock >= fameNeeded;
+    const hsdOk   = hsdStock  >= hsdNeeded;
+    const feasible = fameOk && hsdOk;
+    setResult({
+      vol, grade, famePct: sel.fame, hsdPct: sel.fame < 100 ? 100 - sel.fame : 0,
+      fameNeeded, hsdNeeded,
+      fameRemaining: parseFloat((fameStock - fameNeeded).toFixed(3)),
+      hsdRemaining:  parseFloat((hsdStock  - hsdNeeded).toFixed(3)),
+      fameOk, hsdOk, feasible,
+    });
+  };
+
+  const reset = () => { setResult(null); setTargetVol(""); };
+
+  return (
+    <div>
+      <div style={{ marginBottom:28 }}>
+        <div style={{ fontSize:10, letterSpacing:3, color:"rgba(0,200,255,0.5)", textTransform:"uppercase", marginBottom:4 }}>Government Regulation Formula</div>
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:38, letterSpacing:3 }}>BLENDING CALC</div>
+      </div>
+
+      {/* Grade reference cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:28 }}>
+        {BLEND_GRADES.map(b => (
+          <div key={b.label} style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 14px", textAlign:"center" }}>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:20, color:"#a78bfa", letterSpacing:2 }}>{b.label}</div>
+            <div style={{ fontSize:10, color:"#34d399", marginTop:4 }}>FAME {b.fame}%</div>
+            {b.fame < 100 && <div style={{ fontSize:10, color:"#60a5fa" }}>HSD {100-b.fame}%</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* Available stock */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:28 }}>
+        <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 20px" }}>
+          <div style={{ fontSize:9, letterSpacing:2, color:"rgba(0,200,255,0.5)", textTransform:"uppercase", marginBottom:12 }}>Available HSD Stock</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:28, color:"#60a5fa" }}>{fmt(hsdStock)} KL</div>
+          <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:4 }}>{hsdTank?.name}</div>
+        </div>
+        <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 20px" }}>
+          <div style={{ fontSize:9, letterSpacing:2, color:"rgba(0,200,255,0.5)", textTransform:"uppercase", marginBottom:12 }}>Available FAME Stock</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:28, color:"#34d399" }}>{fmt(fameStock)} KL</div>
+          <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:4 }}>
+            {fameTank?.name}{t3Contributes ? ` + ${t3Tank?.name} (FAME)` : ""}
+          </div>
+        </div>
+      </div>
+
+      {/* Calculator form */}
+      <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"24px 28px", marginBottom:24 }}>
+        <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.35)", textTransform:"uppercase", marginBottom:20 }}>Blend Request</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:14, alignItems:"flex-end" }}>
+          <div>
+            <Label>Target Biosolar Volume (KL)</Label>
+            <input type="number" min="0" step="0.001" placeholder="e.g. 100" value={targetVol} onChange={e=>{setTargetVol(e.target.value);setResult(null);}}
+              style={inputStyle} />
+          </div>
+          <div>
+            <Label>Blend Grade</Label>
+            <select value={grade} onChange={e=>{setGrade(e.target.value);setResult(null);}} style={inputStyle}>
+              {BLEND_GRADES.map(b=><option key={b.label} value={b.label} style={{background:"#0a0f1e"}}>{b.label} — FAME {b.fame}% {b.fame<100?`/ HSD ${100-b.fame}%`:""}</option>)}
+            </select>
+          </div>
+          <button onClick={calculate} className="btn-act"
+            style={{ ...btnBase, background:"linear-gradient(135deg,#4a00a8,#a78bfa)", color:"#fff", padding:"10px 24px", whiteSpace:"nowrap" }}>
+            CALCULATE
+          </button>
+        </div>
+
+        {/* Formula preview */}
+        {targetVol && parseFloat(targetVol) > 0 && (
+          <div style={{ marginTop:16, padding:"12px 16px", background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:8, fontSize:11, color:"rgba(255,255,255,0.55)" }}>
+            {(() => {
+              const vol = parseFloat(targetVol)||0;
+              const sel = BLEND_GRADES.find(b=>b.label===grade);
+              const fN = v => fmt(parseFloat((v).toFixed(3)));
+              return `${grade} formula: ${fN(vol * sel.fame/100)} KL FAME (${sel.fame}%) + ${sel.fame<100?fN(vol*(100-sel.fame)/100)+" KL HSD ("+( 100-sel.fame)+"%)":"—"} = ${fN(vol)} KL Biosolar`;
+            })()}
+          </div>
+        )}
+      </div>
+
+      {/* Result */}
+      {result && (
+        <div style={{ background: result.feasible?"rgba(52,211,153,0.05)":"rgba(239,68,68,0.05)", border:`1px solid ${result.feasible?"rgba(52,211,153,0.25)":"rgba(239,68,68,0.25)"}`, borderRadius:12, padding:"24px 28px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+            <span style={{ fontSize:24 }}>{result.feasible?"✅":"❌"}</span>
+            <div>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:22, color: result.feasible?"#34d399":"#ef4444" }}>
+                {result.feasible ? "BLEND FEASIBLE" : "INSUFFICIENT STOCK"}
+              </div>
+              <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:2 }}>
+                {result.grade} · {fmt(result.vol)} KL Biosolar target
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            {/* FAME */}
+            <div style={{ background: result.fameOk?"rgba(52,211,153,0.07)":"rgba(239,68,68,0.07)", border:`1px solid ${result.fameOk?"rgba(52,211,153,0.2)":"rgba(239,68,68,0.2)"}`, borderRadius:10, padding:"16px 20px" }}>
+              <div style={{ fontSize:9, letterSpacing:2, color:"#34d399", textTransform:"uppercase", marginBottom:8 }}>FAME Required ({result.famePct}%)</div>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:26, color: result.fameOk?"#34d399":"#ef4444" }}>{fmt(result.fameNeeded)} KL</div>
+              <div style={{ marginTop:8, fontSize:10, color:"rgba(255,255,255,0.45)" }}>Available: <span style={{ color: result.fameOk?"#34d399":"#ef4444" }}>{fmt(fameStock)} KL</span></div>
+              <div style={{ fontSize:10, color:"rgba(255,255,255,0.45)", marginTop:2 }}>
+                {result.fameOk
+                  ? <>Remaining after blend: <span style={{ color:"#34d399" }}>{fmt(result.fameRemaining)} KL</span></>
+                  : <span style={{ color:"#ef4444" }}>Deficit: {fmt(Math.abs(result.fameRemaining))} KL</span>}
+              </div>
+            </div>
+            {/* HSD */}
+            {result.hsdPct > 0 && (
+              <div style={{ background: result.hsdOk?"rgba(96,165,250,0.07)":"rgba(239,68,68,0.07)", border:`1px solid ${result.hsdOk?"rgba(96,165,250,0.2)":"rgba(239,68,68,0.2)"}`, borderRadius:10, padding:"16px 20px" }}>
+                <div style={{ fontSize:9, letterSpacing:2, color:"#60a5fa", textTransform:"uppercase", marginBottom:8 }}>HSD Required ({result.hsdPct}%)</div>
+                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:26, color: result.hsdOk?"#60a5fa":"#ef4444" }}>{fmt(result.hsdNeeded)} KL</div>
+                <div style={{ marginTop:8, fontSize:10, color:"rgba(255,255,255,0.45)" }}>Available: <span style={{ color: result.hsdOk?"#60a5fa":"#ef4444" }}>{fmt(hsdStock)} KL</span></div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.45)", marginTop:2 }}>
+                  {result.hsdOk
+                    ? <>Remaining after blend: <span style={{ color:"#60a5fa" }}>{fmt(result.hsdRemaining)} KL</span></>
+                    : <span style={{ color:"#ef4444" }}>Deficit: {fmt(Math.abs(result.hsdRemaining))} KL</span>}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button onClick={reset} className="btn-act"
+            style={{ marginTop:18, padding:"8px 20px", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, color:"rgba(255,255,255,0.5)", fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>
+            Reset
+          </button>
+        </div>
+      )}
     </div>
   );
 }
