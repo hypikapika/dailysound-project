@@ -145,7 +145,7 @@ function RoleBadge({ role }) {
   return (
     <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, border:`1px solid ${c}40`, color:c, background:`${c}15`, fontWeight:800, letterSpacing:1, textTransform:"uppercase" }}>
       {role}
-    </s
+    </span>
   );
 }
 
