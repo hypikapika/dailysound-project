@@ -44,19 +44,17 @@ const PERMS = {
 };
 
 const USERS_DB = [
-  { id:1, name:"Rahmat Hidayat",  username:"admin",      password:"admin123",      role:"admin",      avatar:"RH", dept:"Management" },
-  { id:2, name:"Sari Budiarto",   username:"manager",    password:"manager123",    role:"manager",    avatar:"SB", dept:"Operations" },
-  { id:3, name:"Eko Priyanto",    username:"supervisor", password:"supervisor123", role:"supervisor", avatar:"EP", dept:"Deck" },
-  { id:4, name:"Wulan Sari",      username:"user",       password:"user123",       role:"user",       avatar:"WS", dept:"Crew" },
+  { id:1, name:"Takim",   username:"takim",    password:"takim123",    role:"admin",      avatar:"TK", dept:"Management" },
+  { id:2, name:"Manager", username:"manager",  password:"manager123",  role:"manager",    avatar:"MG", dept:"Operations" },
+  { id:3, name:"Subandi", username:"subandi",  password:"subandi123",  role:"supervisor", avatar:"SB", dept:"Deck" },
+  { id:4, name:"Kim",     username:"kim",      password:"kim123",      role:"user",       avatar:"KM", dept:"Crew" },
 ];
 
 const TANKS_DB = [
-  { id:"T1", name:"No.1 Center",    type:"ship",     capacity:3500, product:"HFO 380" },
-  { id:"T2", name:"No.2 Port",      type:"ship",     capacity:2800, product:"HFO 380" },
-  { id:"T3", name:"No.3 Stbd",      type:"ship",     capacity:2800, product:"MGO" },
-  { id:"T4", name:"Shore Tank A",   type:"shore",    capacity:10000,product:"HFO 380" },
-  { id:"T5", name:"Shore Tank B",   type:"shore",    capacity:8000, product:"MGO" },
-  { id:"T6", name:"Depot Tank 1",   type:"depot",    capacity:5000, product:"Avtur" },
+  { id:"T1", name:"Tank 1 HSD",      type:"shore", capacity:5000, product:"HSD" },
+  { id:"T2", name:"Tank 2 FAME",     type:"shore", capacity:5000, product:"FAME" },
+  { id:"T3", name:"Tank 3",          type:"shore", capacity:5000, product:"HSD" },
+  { id:"T4", name:"Tank 4 Biosolar", type:"shore", capacity:5000, product:"Biosolar" },
 ];
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -68,17 +66,17 @@ function genId(prefix) { return prefix + "_" + Date.now() + "_" + Math.floor(Mat
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 const SEED_SOUNDINGS = [
-  { id:"S001", tankId:"T1", date:"2026-03-05", session:"morning", level:4.25, volume:2980, temp:42.5, density:0.985, status:"approved_manager", submittedBy:"user", supervisorApproval:"approved", managerApproval:"approved", note:"Normal reading" },
-  { id:"S002", tankId:"T1", date:"2026-03-05", session:"afternoon", level:3.92, volume:2740, temp:44.1, density:0.986, status:"approved_manager", submittedBy:"user", supervisorApproval:"approved", managerApproval:"approved", note:"" },
-  { id:"S003", tankId:"T2", date:"2026-03-05", session:"morning", level:3.10, volume:1850, temp:41.0, density:0.984, status:"pending_supervisor", submittedBy:"user", supervisorApproval:"pending", managerApproval:"pending", note:"" },
-  { id:"S004", tankId:"T4", date:"2026-03-06", session:"morning", level:8.50, volume:7200, temp:38.5, density:0.987, status:"pending_supervisor", submittedBy:"user", supervisorApproval:"pending", managerApproval:"pending", note:"" },
-  { id:"S005", tankId:"T3", date:"2026-03-06", session:"morning", level:2.80, volume:1960, temp:35.2, density:0.832, status:"approved_supervisor", submittedBy:"user", supervisorApproval:"approved", managerApproval:"pending", note:"" },
+  { id:"S001", tankId:"T1", date:"2026-03-05", session:"morning",   level:4.25, volume:2980, temp:42.5, density:0.850, status:"approved_manager",  submittedBy:"kim", supervisorApproval:"approved", managerApproval:"approved", note:"Normal reading" },
+  { id:"S002", tankId:"T1", date:"2026-03-05", session:"afternoon", level:3.92, volume:2740, temp:44.1, density:0.851, status:"approved_manager",  submittedBy:"kim", supervisorApproval:"approved", managerApproval:"approved", note:"" },
+  { id:"S003", tankId:"T2", date:"2026-03-05", session:"morning",   level:3.10, volume:1850, temp:41.0, density:0.880, status:"pending_supervisor", submittedBy:"kim", supervisorApproval:"pending",  managerApproval:"pending",  note:"" },
+  { id:"S004", tankId:"T4", date:"2026-03-06", session:"morning",   level:3.50, volume:2200, temp:38.5, density:0.890, status:"pending_supervisor", submittedBy:"kim", supervisorApproval:"pending",  managerApproval:"pending",  note:"" },
+  { id:"S005", tankId:"T3", date:"2026-03-06", session:"morning",   level:2.80, volume:1960, temp:35.2, density:0.850, status:"approved_supervisor", submittedBy:"kim", supervisorApproval:"approved", managerApproval:"pending", note:"" },
 ];
 
 const SEED_CARGO = [
-  { id:"C001", tankId:"T4", type:"in",  date:"2026-03-05", volume:3000, vesselRef:"MT Pertiwi", bL:"BL-2026-001", status:"approved_manager", submittedBy:"user", supervisorApproval:"approved", managerApproval:"approved", note:"Loading from refinery" },
-  { id:"C002", tankId:"T5", type:"out", date:"2026-03-05", volume:1500, vesselRef:"MT Merdeka", bL:"BL-2026-002", status:"pending_supervisor", submittedBy:"user", supervisorApproval:"pending", managerApproval:"pending", note:"Discharge to vessel" },
-  { id:"C003", tankId:"T1", type:"in",  date:"2026-03-06", volume:800,  vesselRef:"Bunkering",  bL:"BL-2026-003", status:"approved_supervisor", submittedBy:"supervisor", supervisorApproval:"approved", managerApproval:"pending", note:"Bunker loading" },
+  { id:"C001", tankId:"T1", type:"in",  date:"2026-03-05", volume:3000, vesselRef:"MT Pertiwi", bL:"BL-2026-001", status:"approved_manager",  submittedBy:"kim",     supervisorApproval:"approved", managerApproval:"approved", note:"Loading HSD from refinery" },
+  { id:"C002", tankId:"T2", type:"out", date:"2026-03-05", volume:1500, vesselRef:"MT Merdeka", bL:"BL-2026-002", status:"pending_supervisor", submittedBy:"kim",     supervisorApproval:"pending",  managerApproval:"pending",  note:"FAME discharge to vessel" },
+  { id:"C003", tankId:"T1", type:"in",  date:"2026-03-06", volume:800,  vesselRef:"MT Nusantara", bL:"BL-2026-003", status:"approved_supervisor", submittedBy:"subandi", supervisorApproval:"approved", managerApproval:"pending", note:"HSD loading" },
 ];
 
 // Compute actual stock per tank from seed
@@ -199,6 +197,8 @@ export default function App() {
   const [clock, setClock] = useState(new Date());
   const [filterDate, setFilterDate] = useState(today());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [t3Product, setT3Product] = useState("HSD");
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
 
   useEffect(() => {
@@ -389,10 +389,20 @@ export default function App() {
       <div style={{ display:"flex", flex:1, position:"relative" }}>
 
         {/* ── DESKTOP SIDEBAR ── */}
-        {!isMobile && (
-          <div style={{ width:230, background:"rgba(0,0,0,0.4)", borderRight:"1px solid rgba(0,200,255,0.08)", padding:"24px 14px", display:"flex", flexDirection:"column", flexShrink:0, backdropFilter:"blur(10px)" }}>
+        {!isMobile && !sidebarCollapsed && (
+          <div style={{ width:230, background:"rgba(0,0,0,0.4)", borderRight:"1px solid rgba(0,200,255,0.08)", padding:"24px 14px", display:"flex", flexDirection:"column", flexShrink:0, backdropFilter:"blur(10px)", position:"relative" }}>
+            <button onClick={()=>setSidebarCollapsed(true)} title="Hide sidebar"
+              style={{ position:"absolute", top:16, right:-14, width:28, height:28, borderRadius:"50%", background:"rgba(0,0,0,0.6)", border:"1px solid rgba(0,200,255,0.2)", color:"rgba(0,200,255,0.7)", fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:10 }}>
+              ◀
+            </button>
             <SidebarContent />
           </div>
+        )}
+        {!isMobile && sidebarCollapsed && (
+          <button onClick={()=>setSidebarCollapsed(false)} title="Show sidebar"
+            style={{ position:"fixed", top:"50%", left:0, transform:"translateY(-50%)", width:20, height:60, background:"rgba(0,0,0,0.7)", border:"1px solid rgba(0,200,255,0.2)", borderLeft:"none", borderRadius:"0 8px 8px 0", color:"rgba(0,200,255,0.7)", fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, writingMode:"vertical-rl" }}>
+            ▶
+          </button>
         )}
 
         {/* ── MOBILE OVERLAY SIDEBAR ── */}
@@ -445,12 +455,12 @@ export default function App() {
             </div>
           )}
 
-          {tab==="dashboard" && <DashboardTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} pendingCount={pendingCount} isMobile={isMobile} />}
+          {tab==="dashboard" && <DashboardTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} pendingCount={pendingCount} isMobile={isMobile} t3Product={t3Product} setT3Product={setT3Product} />}
           {tab==="sounding" && <SoundingTab user={user} perm={perm} soundings={soundings} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"sounding"})} onApprove={approveSounding} onReject={rejectSounding} currentSession={currentSession} isMobile={isMobile} />}
           {tab==="cargo" && <CargoTab user={user} perm={perm} cargo={cargo} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"cargo"})} onApprove={approveCargo} onReject={rejectCargo} isMobile={isMobile} />}
-          {tab==="stock" && <StockControlTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} perm={perm} onClose={closeStockForDay} closingStock={closingStock} isMobile={isMobile} />}
+          {tab==="stock" && <StockControlTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} perm={perm} onClose={closeStockForDay} closingStock={closingStock} isMobile={isMobile} t3Product={t3Product} />}
           {tab==="approval" && <ApprovalTab user={user} perm={perm} soundings={soundings} cargo={cargo} onApproveSounding={approveSounding} onRejectSounding={rejectSounding} onApproveCargo={approveCargo} onRejectCargo={rejectCargo} isMobile={isMobile} />}
-          {tab==="report" && perm.viewAll && <ReportTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} isMobile={isMobile} />}
+          {tab==="report" && perm.viewAll && <ReportTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} isMobile={isMobile} t3Product={t3Product} />}
           {tab==="users" && perm.manageUsers && <UsersTab />}
         </div>
       </div>
@@ -489,7 +499,7 @@ export default function App() {
           style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}>
           <div className="modal-card" onClick={e=>e.stopPropagation()}
             style={{ background:"#0a0f1e", border:"1px solid rgba(0,200,255,0.15)", borderRadius:16, padding: isMobile ? 20 : 32, width:"94%", maxWidth:520, maxHeight:"92vh", overflowY:"auto" }}>
-            {modal.type==="sounding" && <SoundingForm user={user} onSubmit={submitSounding} onCancel={()=>setModal(null)} currentSession={currentSession} />}
+            {modal.type==="sounding" && <SoundingForm user={user} onSubmit={submitSounding} onCancel={()=>setModal(null)} currentSession={currentSession} t3Product={t3Product} />}
             {modal.type==="cargo"    && <CargoForm    user={user} onSubmit={submitCargo}    onCancel={()=>setModal(null)} />}
           </div>
         </div>
@@ -503,13 +513,10 @@ export default function App() {
       )}
     </div>
   );
-      )}
-    </div>
-  );
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, filterDate, setFilterDate, pendingCount, isMobile }) {
+function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, filterDate, setFilterDate, pendingCount, isMobile, t3Product, setT3Product }) {
   const totalValue = tanks.reduce((a,t)=>{
     const vol = stockLevels[t.id]||0;
     return a + vol;
@@ -557,7 +564,16 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
                   <div>
                     <div style={{ fontSize:11, fontWeight:600, color:"#fff" }}>{typeIcon} {tank.name}</div>
-                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:2 }}>{tank.product}</div>
+                    {tank.id === "T3" ? (
+                      <select value={t3Product} onChange={e=>setT3Product(e.target.value)}
+                        onClick={e=>e.stopPropagation()}
+                        style={{ marginTop:3, background:"rgba(0,200,255,0.08)", border:"1px solid rgba(0,200,255,0.25)", borderRadius:5, padding:"2px 6px", color:"#00c8ff", fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>
+                        <option value="HSD" style={{background:"#0a0f1e"}}>HSD</option>
+                        <option value="FAME" style={{background:"#0a0f1e"}}>FAME</option>
+                      </select>
+                    ) : (
+                      <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:2 }}>{tank.product}</div>
+                    )}
                   </div>
                   <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)", textAlign:"right" }}>
                     <div>{fmt(cur)} KL</div>
@@ -803,7 +819,7 @@ function CargoTab({ user, perm, cargo, filterDate, setFilterDate, onNew, onAppro
 }
 
 // ─── STOCK CONTROL ────────────────────────────────────────────────────────────
-function StockControlTab({ tanks, soundings, cargo, stockLevels, getControlStock, filterDate, setFilterDate, perm, onClose, closingStock }) {
+function StockControlTab({ tanks, soundings, cargo, stockLevels, getControlStock, filterDate, setFilterDate, perm, onClose, closingStock, t3Product }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
@@ -840,7 +856,7 @@ function StockControlTab({ tanks, soundings, cargo, stockLevels, getControlStock
                   <span style={{ fontSize:18 }}>{typeIcon}</span>
                   <div>
                     <div style={{ fontSize:14, fontWeight:600, color:"#fff" }}>{tank.name}</div>
-                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{tank.product} · Cap: {fmt(tank.capacity)} KL</div>
+                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{tank.id==="T3" ? t3Product : tank.product} · Cap: {fmt(tank.capacity)} KL</div>
                   </div>
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -1003,7 +1019,7 @@ function ApprovalTab({ user, perm, soundings, cargo, onApproveSounding, onReject
 }
 
 // ─── REPORTS ─────────────────────────────────────────────────────────────────
-function ReportTab({ tanks, soundings, cargo, stockLevels }) {
+function ReportTab({ tanks, soundings, cargo, stockLevels, t3Product }) {
   const approvedSoundings = soundings.filter(s=>s.status==="approved_manager");
   const approvedCargo = cargo.filter(c=>c.status==="approved_manager");
 
@@ -1162,7 +1178,7 @@ function UsersTab() {
 }
 
 // ─── FORMS ────────────────────────────────────────────────────────────────────
-function SoundingForm({ user, onSubmit, onCancel, currentSession }) {
+function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
   const [f, setF] = useState({ tankId:"T1", date:today(), session:currentSession, level:"", volume:"", temp:"", density:"", note:"" });
   const set = (k,v) => setF(p=>({...p,[k]:v}));
   const handle = () => {
@@ -1177,7 +1193,7 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession }) {
         <div>
           <Label>Tank</Label>
           <select value={f.tankId} onChange={e=>set("tankId",e.target.value)} style={inputStyle}>
-            {TANKS_DB.map(t=><option key={t.id} value={t.id} style={{background:"#0a0f1e"}}>{t.name} ({t.product})</option>)}
+            {TANKS_DB.map(t=><option key={t.id} value={t.id} style={{background:"#0a0f1e"}}>{t.name} ({t.id==="T3" ? t3Product : t.product})</option>)}
           </select>
         </div>
         <div>
@@ -1220,6 +1236,8 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession }) {
   );
 }
 
+const CARGO_TANKS = TANKS_DB.filter(t => t.id === "T1" || t.id === "T2");
+
 function CargoForm({ user, onSubmit, onCancel }) {
   const [f, setF] = useState({ tankId:"T1", date:today(), type:"in", volume:"", vesselRef:"", bL:"", note:"" });
   const set = (k,v) => setF(p=>({...p,[k]:v}));
@@ -1235,7 +1253,7 @@ function CargoForm({ user, onSubmit, onCancel }) {
         <div>
           <Label>Tank</Label>
           <select value={f.tankId} onChange={e=>set("tankId",e.target.value)} style={inputStyle}>
-            {TANKS_DB.map(t=><option key={t.id} value={t.id} style={{background:"#0a0f1e"}}>{t.name}</option>)}
+            {CARGO_TANKS.map(t=><option key={t.id} value={t.id} style={{background:"#0a0f1e"}}>{t.name} ({t.product})</option>)}
           </select>
         </div>
         <div>
