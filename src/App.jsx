@@ -595,8 +595,14 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
         </div>
       </div>
 
+      {/* Volume Chart */}
+      <div style={{ marginBottom:28, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"20px 24px" }}>
+        <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:16 }}>Volume Chart — Current Stock vs Capacity (KL)</div>
+        <TankBarChart tanks={tanks} stockLevels={stockLevels} />
+      </div>
+
       {/* Recent activity */}
-      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:16 }}>
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:16, marginBottom:28 }}>
         <div>
           <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:12 }}>Recent Soundings</div>
           <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:10, overflow:"hidden" }}>
@@ -636,6 +642,37 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Variance Inventory */}
+      <div>
+        <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:12 }}>Variance Inventory — {fmtDate(filterDate)}</div>
+        <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 90px 80px 80px 90px 110px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
+            <div>Tank</div><div>Opening</div><div>In</div><div>Out</div><div>Actual</div><div>Variance</div>
+          </div>
+          {tanks.map((tank,i)=>{
+            const ctrl = getControlStock(tank.id, filterDate);
+            const opening = ctrl.closing||ctrl.morning||stockLevels[tank.id]||0;
+            const actual = opening+ctrl.cargoIn-ctrl.cargoOut;
+            const measured = ctrl.afternoon!==null ? ctrl.afternoon : ctrl.morning;
+            const variance = measured!==null ? measured-actual : null;
+            const varColor = variance===null?"rgba(255,255,255,0.25)":Math.abs(variance)<5?"#34d399":Math.abs(variance)<50?"#fbbf24":"#ef4444";
+            return (
+              <div key={tank.id} className="row" style={{ display:"grid", gridTemplateColumns:"1fr 90px 80px 80px 90px 110px", padding:"11px 16px", borderBottom:i<tanks.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:11 }}>
+                <div>
+                  <div style={{ color:"#fff" }}>{tank.name}</div>
+                  <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)" }}>{tank.product}</div>
+                </div>
+                <div style={{ color:"rgba(255,255,255,0.5)", fontSize:10 }}>{fmt(opening)}</div>
+                <div style={{ color:"#34d399", fontSize:10 }}>{ctrl.cargoIn>0?"+"+fmt(ctrl.cargoIn):"—"}</div>
+                <div style={{ color:"#f87171", fontSize:10 }}>{ctrl.cargoOut>0?"-"+fmt(ctrl.cargoOut):"—"}</div>
+                <div style={{ color:"#00c8ff", fontWeight:600, fontSize:10 }}>{fmt(actual)}</div>
+                <div style={{ color:varColor, fontWeight:700, fontSize:10 }}>{variance!==null?`${variance>=0?"+":""}${fmt(variance)} KL`:"No data"}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1022,14 +1059,30 @@ function ApprovalTab({ user, perm, soundings, cargo, onApproveSounding, onReject
 function ReportTab({ tanks, soundings, cargo, stockLevels, t3Product }) {
   const approvedSoundings = soundings.filter(s=>s.status==="approved_manager");
   const approvedCargo = cargo.filter(c=>c.status==="approved_manager");
+  const tankColors = ["#00c8ff","#34d399","#fbbf24","#a78bfa"];
 
   return (
     <div>
-      <div style={{ marginBottom:24 }}>
-        <div style={{ fontSize:10, letterSpacing:3, color:"rgba(0,200,255,0.5)", textTransform:"uppercase", marginBottom:4 }}>Analytics</div>
-        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:38, letterSpacing:3 }}>REPORTS</div>
+      {/* Header + Export buttons */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
+        <div>
+          <div style={{ fontSize:10, letterSpacing:3, color:"rgba(0,200,255,0.5)", textTransform:"uppercase", marginBottom:4 }}>Analytics</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:38, letterSpacing:3 }}>REPORTS</div>
+        </div>
+        <div style={{ display:"flex", gap:10 }}>
+          <button className="btn-act" onClick={()=>downloadCSV(soundings,cargo)}
+            style={{ background:"rgba(52,211,153,0.1)", border:"1px solid rgba(52,211,153,0.3)", borderRadius:8, padding:"9px 18px", color:"#34d399", fontSize:11, letterSpacing:1, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>
+            ↓ CSV
+          </button>
+          <button className="btn-act" onClick={()=>printReport(tanks,soundings,cargo,stockLevels)}
+            style={{ background:"rgba(96,165,250,0.1)", border:"1px solid rgba(96,165,250,0.3)", borderRadius:8, padding:"9px 18px", color:"#60a5fa", fontSize:11, letterSpacing:1, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>
+            ↓ PDF
+          </button>
+        </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+
+      {/* Stats grid */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
         {/* Stock levels */}
         <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
           <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:16 }}>Current Stock Levels</div>
@@ -1051,7 +1104,25 @@ function ReportTab({ tanks, soundings, cargo, stockLevels, t3Product }) {
           })}
         </div>
 
-        {/* Sounding history summary */}
+        {/* Approval stats */}
+        <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
+          <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:16 }}>Approval Statistics</div>
+          {[
+            { label:"Soundings Approved", val: soundings.filter(s=>s.status==="approved_manager").length, color:"#34d399" },
+            { label:"Soundings Pending",  val: soundings.filter(s=>s.status!=="approved_manager"&&s.status!=="rejected").length, color:"#fbbf24" },
+            { label:"Soundings Rejected", val: soundings.filter(s=>s.status==="rejected").length, color:"#ef4444" },
+            { label:"Cargo Approved",     val: cargo.filter(c=>c.status==="approved_manager").length, color:"#34d399" },
+            { label:"Cargo Pending",      val: cargo.filter(c=>c.status!=="approved_manager"&&c.status!=="rejected").length, color:"#fbbf24" },
+            { label:"Total Stock (KL)",   val: fmt(tanks.reduce((a,t)=>(stockLevels[t.id]||0)+a,0)), color:"#00c8ff" },
+          ].map(item=>(
+            <div key={item.label} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:11 }}>
+              <span style={{ color:"rgba(255,255,255,0.5)" }}>{item.label}</span>
+              <span style={{ color:item.color, fontWeight:700 }}>{item.val}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Sounding summary */}
         <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
           <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:16 }}>Sounding Summary</div>
           {[...new Set(approvedSoundings.map(s=>s.date))].sort((a,b)=>b.localeCompare(a)).slice(0,6).map(date=>{
@@ -1088,22 +1159,55 @@ function ReportTab({ tanks, soundings, cargo, stockLevels, t3Product }) {
             );
           }).filter(Boolean)}
         </div>
+      </div>
 
-        {/* Approval stats */}
-        <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
-          <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:16 }}>Approval Statistics</div>
-          {[
-            { label:"Soundings Approved",    val: soundings.filter(s=>s.status==="approved_manager").length, color:"#34d399" },
-            { label:"Soundings Pending",     val: soundings.filter(s=>s.status!=="approved_manager"&&s.status!=="rejected").length, color:"#fbbf24" },
-            { label:"Soundings Rejected",    val: soundings.filter(s=>s.status==="rejected").length, color:"#ef4444" },
-            { label:"Cargo Approved",        val: cargo.filter(c=>c.status==="approved_manager").length, color:"#34d399" },
-            { label:"Cargo Pending",         val: cargo.filter(c=>c.status!=="approved_manager"&&c.status!=="rejected").length, color:"#fbbf24" },
-          ].map(item=>(
-            <div key={item.label} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:11 }}>
-              <span style={{ color:"rgba(255,255,255,0.5)" }}>{item.label}</span>
-              <span style={{ color:item.color, fontWeight:700 }}>{item.val}</span>
+      {/* Per-tank sounding history line charts */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:14 }}>Sounding History — Morning Readings (Last 8 Days)</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+          {tanks.map((t,ti)=>(
+            <div key={t.id} style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 16px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                <div style={{ fontSize:11, color:"#fff", fontWeight:600 }}>{t.name}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>{t.id==="T3"?t3Product:t.product} · cap {fmt(t.capacity)} KL</div>
+              </div>
+              <SoundingLineChart soundings={soundings} tankId={t.id} color={tankColors[ti%4]} />
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Full Variance Inventory Table */}
+      <div>
+        <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:14 }}>Full Variance Inventory</div>
+        <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 90px 80px 80px 90px 90px 100px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
+            <div>Tank / Product</div><div>Capacity</div><div>Stock</div><div>Fill %</div><div>Total In</div><div>Total Out</div><div>Net</div>
+          </div>
+          {tanks.map((t,i)=>{
+            const vol = stockLevels[t.id]||0;
+            const pct = Math.min(100,Math.round((vol/t.capacity)*100));
+            const tIn  = approvedCargo.filter(c=>c.tankId===t.id&&c.type==="in").reduce((a,c)=>a+c.volume,0);
+            const tOut = approvedCargo.filter(c=>c.tankId===t.id&&c.type==="out").reduce((a,c)=>a+c.volume,0);
+            const net = tIn-tOut;
+            const fillColor = pct>60?"#34d399":pct>30?"#00c8ff":pct>10?"#fbbf24":"#ef4444";
+            return (
+              <div key={t.id} className="row" style={{ display:"grid", gridTemplateColumns:"1fr 90px 80px 80px 90px 90px 100px", padding:"12px 16px", borderBottom:i<tanks.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:11 }}>
+                <div>
+                  <div style={{ color:"#fff" }}>{t.name}</div>
+                  <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)" }}>{t.id==="T3"?t3Product:t.product}</div>
+                </div>
+                <div style={{ color:"rgba(255,255,255,0.4)", fontSize:10 }}>{fmt(t.capacity)}</div>
+                <div style={{ color:"#00c8ff", fontSize:10 }}>{fmt(vol)}</div>
+                <div>
+                  <span style={{ fontSize:10, padding:"2px 6px", borderRadius:4, background:`${fillColor}20`, color:fillColor, border:`1px solid ${fillColor}40` }}>{pct}%</span>
+                </div>
+                <div style={{ color:"#34d399", fontSize:10 }}>{tIn>0?"+"+fmt(tIn):"—"}</div>
+                <div style={{ color:"#f87171", fontSize:10 }}>{tOut>0?"-"+fmt(tOut):"—"}</div>
+                <div style={{ color:net>=0?"#34d399":"#f87171", fontWeight:700, fontSize:10 }}>{net>=0?"+":""}{fmt(net)}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1302,3 +1406,141 @@ function CargoForm({ user, onSubmit, onCancel }) {
 const inputStyle = { width:"100%", background:"rgba(0,200,255,0.05)", border:"1px solid rgba(0,200,255,0.15)", borderRadius:8, padding:"10px 12px", color:"#fff", fontSize:12 };
 const btnBase = { border:"none", borderRadius:8, padding:"12px", fontSize:11, letterSpacing:1.5, fontWeight:800, cursor:"pointer", fontFamily:"'Share Tech Mono',monospace", textTransform:"uppercase", transition:"all 0.15s" };
 const Label = ({children}) => <div style={{ fontSize:9, letterSpacing:2, color:"rgba(0,200,255,0.5)", textTransform:"uppercase", marginBottom:6 }}>{children}</div>;
+
+// ─── CHART: TANK BAR CHART ───────────────────────────────────────────────────
+function TankBarChart({ tanks, stockLevels }) {
+  const W = 60, GAP = 22, H = 130;
+  const totalW = tanks.length * (W + GAP) - GAP;
+  return (
+    <div style={{ overflowX:"auto" }}>
+      <svg viewBox={`0 0 ${totalW} ${H + 56}`} style={{ width:"100%", minWidth:totalW, overflow:"visible" }}>
+        {tanks.map((t, i) => {
+          const vol = stockLevels[t.id] || 0;
+          const pct = Math.min(1, t.capacity > 0 ? vol / t.capacity : 0);
+          const bH = Math.max(2, Math.round(pct * H));
+          const x = i * (W + GAP);
+          const color = pct > 0.7 ? "#34d399" : pct > 0.3 ? "#00c8ff" : pct > 0.1 ? "#fbbf24" : "#ef4444";
+          const parts = t.name.split(" ");
+          return (
+            <g key={t.id}>
+              <rect x={x} y={0} width={W} height={H} fill="rgba(255,255,255,0.04)" rx={5}/>
+              <rect x={x} y={H-bH} width={W} height={bH} fill={color} rx={5} opacity={0.85}/>
+              {bH > 16
+                ? <text x={x+W/2} y={H-bH+12} textAnchor="middle" fill="#000" fillOpacity={0.65} fontSize={8} fontFamily="monospace" fontWeight="bold">{fmt(vol)}</text>
+                : <text x={x+W/2} y={H-bH-5} textAnchor="middle" fill={color} fontSize={8} fontFamily="monospace">{fmt(vol)}</text>
+              }
+              <text x={x+W/2} y={H+13} textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize={8} fontFamily="monospace">{parts.slice(0,2).join(" ")}</text>
+              <text x={x+W/2} y={H+25} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={8} fontFamily="monospace">{parts.slice(2).join(" ")}</text>
+              <text x={x+W/2} y={H+40} textAnchor="middle" fill={color} fontSize={11} fontFamily="monospace" fontWeight="bold">{Math.round(pct*100)}%</text>
+              <text x={x+W/2} y={H+53} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize={7} fontFamily="monospace">cap {fmt(t.capacity)}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+// ─── CHART: SOUNDING LINE CHART ──────────────────────────────────────────────
+function SoundingLineChart({ soundings, tankId, color="#00c8ff" }) {
+  const data = [...soundings]
+    .filter(s => s.tankId === tankId && s.status === "approved_manager" && s.session === "morning")
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-8);
+  if (data.length < 2) return (
+    <div style={{ textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:10, padding:"18px 0" }}>Insufficient approved data</div>
+  );
+  const W = 320, H = 70, PAD = 14;
+  const vals = data.map(d => d.volume);
+  const minV = Math.min(...vals), maxV = Math.max(...vals), rng = maxV - minV || 1;
+  const pts = data.map((d, i) => ({
+    x: PAD + (i / (data.length - 1)) * (W - PAD * 2),
+    y: PAD + ((maxV - d.volume) / rng) * (H - PAD * 2),
+    label: d.date.slice(5),
+  }));
+  const pathD = pts.map((p, i) => `${i?"L":"M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const areaD = `${pathD}L${pts[pts.length-1].x.toFixed(1)},${H}L${pts[0].x.toFixed(1)},${H}Z`;
+  const uid = `lg_${tankId}`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H+18}`} style={{ width:"100%" }}>
+      <defs>
+        <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.28"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill={`url(#${uid})`}/>
+      <path d={pathD} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      {pts.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r={2.5} fill={color}/>
+          <text x={p.x} y={H+14} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={7} fontFamily="monospace">{p.label}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// ─── CSV EXPORT ───────────────────────────────────────────────────────────────
+function downloadCSV(soundings, cargo) {
+  const q = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  const rows = [
+    [`DAILYSOUND EXPORT`, new Date().toLocaleString("id-ID")],
+    [],
+    [`SOUNDINGS`],
+    [`ID`,`Tank`,`Date`,`Session`,`Level(m)`,`Volume(KL)`,`Temp(°C)`,`Density`,`Status`,`By`,`Note`],
+    ...soundings.map(s => { const t=TANKS_DB.find(x=>x.id===s.tankId); return [s.id,t?.name||s.tankId,s.date,s.session,s.level,s.volume,s.temp,s.density,s.status,s.submittedBy,s.note]; }),
+    [],
+    [`CARGO`],
+    [`ID`,`Tank`,`Date`,`Type`,`Volume(KL)`,`Vessel/Ref`,`B/L`,`Status`,`By`,`Note`],
+    ...cargo.map(c => { const t=TANKS_DB.find(x=>x.id===c.tankId); return [c.id,t?.name||c.tankId,c.date,c.type,c.volume,c.vesselRef,c.bL,c.status,c.submittedBy,c.note]; }),
+  ];
+  const csv = rows.map(r => Array.isArray(r) ? r.map(q).join(",") : "").join("\n");
+  const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download=`dailysound_${new Date().toISOString().split("T")[0]}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+// ─── PDF EXPORT ───────────────────────────────────────────────────────────────
+function printReport(tanks, soundings, cargo, stockLevels) {
+  const fN = n => new Intl.NumberFormat("id-ID",{maximumFractionDigits:2}).format(n);
+  const approved = soundings.filter(s=>s.status==="approved_manager");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>DailySound Report</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Courier New',monospace;font-size:11px;color:#000;padding:28px;background:#fff}
+    h1{font-size:24px;letter-spacing:4px;font-weight:900}
+    h2{font-size:11px;letter-spacing:2px;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid #000;text-transform:uppercase}
+    p{font-size:10px;color:#555;margin-top:3px}
+    table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:10px}
+    th{background:#111;color:#fff;padding:5px 8px;text-align:left;font-size:9px;letter-spacing:1px}
+    td{padding:5px 8px;border-bottom:1px solid #eee}
+    tr:nth-child(even) td{background:#f8f8f8}
+    .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid #000}
+    .pbtn{position:fixed;top:16px;right:16px;padding:10px 22px;background:#111;color:#fff;border:none;cursor:pointer;font-family:inherit;letter-spacing:1px;font-weight:bold;font-size:11px}
+    @media print{.pbtn{display:none}}
+  </style></head><body>
+  <button class="pbtn" onclick="window.print()">PRINT / SAVE PDF</button>
+  <div class="hdr">
+    <div><h1>DAILYSOUND</h1><p>Oil Inventory &amp; Sounding Control System</p></div>
+    <div style="text-align:right"><p>Generated: ${new Date().toLocaleString("id-ID")}</p><p>${soundings.length} soundings &nbsp;·&nbsp; ${cargo.length} cargo records</p></div>
+  </div>
+  <h2>Tank Summary</h2>
+  <table><thead><tr><th>Tank</th><th>Product</th><th>Capacity (KL)</th><th>Stock (KL)</th><th>Fill %</th></tr></thead><tbody>
+  ${tanks.map(t=>{const v=stockLevels[t.id]||0;const p=Math.round(v/t.capacity*100);return`<tr><td>${t.name}</td><td>${t.product}</td><td>${fN(t.capacity)}</td><td>${fN(v)}</td><td>${p}%</td></tr>`;}).join("")}
+  </tbody></table>
+  <h2>Approved Soundings</h2>
+  <table><thead><tr><th>ID</th><th>Tank</th><th>Date</th><th>Session</th><th>Level(m)</th><th>Volume(KL)</th><th>Temp(°C)</th><th>Density</th><th>By</th></tr></thead><tbody>
+  ${approved.map(s=>{const t=TANKS_DB.find(x=>x.id===s.tankId);return`<tr><td>${s.id}</td><td>${t?.name||s.tankId}</td><td>${s.date}</td><td>${s.session}</td><td>${s.level}</td><td>${fN(s.volume)}</td><td>${s.temp}</td><td>${s.density}</td><td>${s.submittedBy}</td></tr>`;}).join("")}
+  </tbody></table>
+  <h2>Approved Cargo</h2>
+  <table><thead><tr><th>ID</th><th>Tank</th><th>Date</th><th>Type</th><th>Volume(KL)</th><th>Vessel</th><th>B/L</th><th>By</th></tr></thead><tbody>
+  ${cargo.filter(c=>c.status==="approved_manager").map(c=>{const t=TANKS_DB.find(x=>x.id===c.tankId);return`<tr><td>${c.id}</td><td>${t?.name||c.tankId}</td><td>${c.date}</td><td>${c.type.toUpperCase()}</td><td>${fN(c.volume)}</td><td>${c.vesselRef}</td><td>${c.bL}</td><td>${c.submittedBy}</td></tr>`;}).join("")}
+  </tbody></table>
+  </body></html>`;
+  const w = window.open("","_blank","width=960,height=720");
+  if(w){ w.document.write(html); w.document.close(); }
+}
