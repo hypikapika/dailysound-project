@@ -52,9 +52,9 @@ const USERS_DB = [
 
 const TANKS_DB = [
   { id:"T1", name:"Tank 1 HSD",      type:"shore", capacity:5000, product:"HSD" },
-  { id:"T2", name:"Tank 2 FAME",     type:"shore", capacity:5000, product:"FAME" },
-  { id:"T3", name:"Tank 3",          type:"shore", capacity:5000, product:"HSD" },
-  { id:"T4", name:"Tank 4 Biosolar", type:"shore", capacity:5000, product:"Biosolar" },
+  { id:"T2", name:"Tank 2 FAME",     type:"shore", capacity:1000, product:"FAME" },
+  { id:"T3", name:"Tank 3",          type:"shore", capacity:850,  product:"HSD" },
+  { id:"T4", name:"Tank 4 Biosolar", type:"shore", capacity:110,  product:"Biosolar" },
 ];
 
 const today = () => new Date().toISOString().split("T")[0];
