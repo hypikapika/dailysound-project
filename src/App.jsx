@@ -87,11 +87,21 @@ const today = () => new Date().toISOString().split("T")[0];
 const STORAGE_KEYS = { soundings:"dailysound:soundings", cargo:"dailysound:cargo", distributions:"dailysound:distributions", stockLevels:"dailysound:stockLevels", closingStock:"dailysound:closingStock" };
 
 const readStorage = (key, fallback) => {
+  if (typeof window === "undefined") return fallback;
   try {
-    const raw = localStorage.getItem(key);
+    const raw = window.localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch {
     return fallback;
+  }
+};
+
+const writeStorage = (key, value) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore storage write failures
   }
 };
 
@@ -247,11 +257,11 @@ export default function App() {
 
   useEffect(() => { const t = setInterval(()=>setClock(new Date()),1000); return ()=>clearInterval(t); },[]);
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.soundings, JSON.stringify(soundings)); }, [soundings]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.cargo, JSON.stringify(cargo)); }, [cargo]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.distributions, JSON.stringify(distributions)); }, [distributions]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.stockLevels, JSON.stringify(stockLevels)); }, [stockLevels]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.closingStock, JSON.stringify(closingStock)); }, [closingStock]);
+  useEffect(() => { writeStorage(STORAGE_KEYS.soundings, soundings); }, [soundings]);
+  useEffect(() => { writeStorage(STORAGE_KEYS.cargo, cargo); }, [cargo]);
+  useEffect(() => { writeStorage(STORAGE_KEYS.distributions, distributions); }, [distributions]);
+  useEffect(() => { writeStorage(STORAGE_KEYS.stockLevels, stockLevels); }, [stockLevels]);
+  useEffect(() => { writeStorage(STORAGE_KEYS.closingStock, closingStock); }, [closingStock]);
 
   const showToast = (msg, type="ok") => { setToast({msg,type}); setTimeout(()=>setToast(null),3000); };
 
