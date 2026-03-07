@@ -37,10 +37,10 @@ const GLOBAL_CSS = `
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const ROLES = { ADMIN: "admin", MANAGER: "manager", SUPERVISOR: "supervisor", USER: "user" };
 const PERMS = {
-  admin:      { createSounding:true, approveSounding:true, createCargo:true, approveCargo:true, createDistrib:true, approveDistrib:true, viewAll:true, manageUsers:true, closeStock:true },
-  manager:    { createSounding:true, approveSounding:true, createCargo:true, approveCargo:true, createDistrib:true, approveDistrib:true, viewAll:true, manageUsers:false, closeStock:true },
-  supervisor: { createSounding:true, approveSounding:true, createCargo:true, approveCargo:false, createDistrib:true, approveDistrib:true, viewAll:true, manageUsers:false, closeStock:false },
-  user:       { createSounding:true, approveSounding:false, createCargo:true, approveCargo:false, createDistrib:true, approveDistrib:false, viewAll:false, manageUsers:false, closeStock:false },
+  admin:      { createSounding:true, approveSounding:true, createCargo:true, approveCargo:true, createDistrib:true, approveDistrib:true, viewAll:true, manageUsers:true, closeStock:true, deleteRecord:true },
+  manager:    { createSounding:true, approveSounding:true, createCargo:true, approveCargo:true, createDistrib:true, approveDistrib:true, viewAll:true, manageUsers:false, closeStock:true, deleteRecord:true },
+  supervisor: { createSounding:true, approveSounding:true, createCargo:true, approveCargo:false, createDistrib:true, approveDistrib:true, viewAll:true, manageUsers:false, closeStock:false, deleteRecord:false },
+  user:       { createSounding:true, approveSounding:false, createCargo:true, approveCargo:false, createDistrib:true, approveDistrib:false, viewAll:false, manageUsers:false, closeStock:false, deleteRecord:false },
 };
 
 const USERS_DB = [
@@ -363,6 +363,11 @@ export default function App() {
 
   const rejectDistribution = (id) => { setDistributions(p=>p.map(d=>d.id===id?{...d,status:"rejected"}:d)); showToast("Distribution rejected","warn"); };
 
+  // DELETE actions (admin / manager only)
+  const deleteSounding     = (id) => { setSoundings(p=>p.filter(s=>s.id!==id)); showToast("Sounding record deleted","warn"); };
+  const deleteCargo        = (id) => { setCargo(p=>p.filter(c=>c.id!==id)); showToast("Cargo record deleted","warn"); };
+  const deleteDistribution = (id) => { setDistributions(p=>p.filter(d=>d.id!==id)); showToast("Distribution record deleted","warn"); };
+
   // CLOSING STOCK
   const closeStockForDay = (tankId, date) => {
     const ctrl = getControlStock(tankId, date);
@@ -529,9 +534,9 @@ export default function App() {
           )}
 
           {tab==="dashboard" && <DashboardTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} pendingCount={pendingCount} isMobile={isMobile} t3Product={t3Product} setT3Product={setT3Product} />}
-          {tab==="sounding" && <SoundingTab user={user} perm={perm} soundings={soundings} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"sounding"})} onApprove={approveSounding} onReject={rejectSounding} currentSession={currentSession} isMobile={isMobile} />}
-          {tab==="cargo" && <CargoTab user={user} perm={perm} cargo={cargo} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"cargo"})} onApprove={approveCargo} onReject={rejectCargo} isMobile={isMobile} />}
-          {tab==="distrib" && <DistribTab user={user} perm={perm} distributions={distributions} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"distrib"})} onApprove={approveDistribution} onReject={rejectDistribution} isMobile={isMobile} />}
+          {tab==="sounding" && <SoundingTab user={user} perm={perm} soundings={soundings} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"sounding"})} onApprove={approveSounding} onReject={rejectSounding} onDelete={deleteSounding} currentSession={currentSession} isMobile={isMobile} />}
+          {tab==="cargo" && <CargoTab user={user} perm={perm} cargo={cargo} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"cargo"})} onApprove={approveCargo} onReject={rejectCargo} onDelete={deleteCargo} isMobile={isMobile} />}
+          {tab==="distrib" && <DistribTab user={user} perm={perm} distributions={distributions} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"distrib"})} onApprove={approveDistribution} onReject={rejectDistribution} onDelete={deleteDistribution} isMobile={isMobile} />}
           {tab==="stock" && <StockControlTab tanks={TANKS_DB} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} perm={perm} onClose={closeStockForDay} closingStock={closingStock} isMobile={isMobile} t3Product={t3Product} />}
           {tab==="approval" && <ApprovalTab user={user} perm={perm} soundings={soundings} cargo={cargo} distributions={distributions} onApproveSounding={approveSounding} onRejectSounding={rejectSounding} onApproveCargo={approveCargo} onRejectCargo={rejectCargo} onApproveDistrib={approveDistribution} onRejectDistrib={rejectDistribution} isMobile={isMobile} />}
           {tab==="blend"  && <BlendingTab tanks={TANKS_DB} stockLevels={stockLevels} t3Product={t3Product} />}
@@ -771,7 +776,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
 }
 
 // ─── SOUNDING TAB ─────────────────────────────────────────────────────────────
-function SoundingTab({ user, perm, soundings, filterDate, setFilterDate, onNew, onApprove, onReject, currentSession }) {
+function SoundingTab({ user, perm, soundings, filterDate, setFilterDate, onNew, onApprove, onReject, onDelete, currentSession }) {
   const filtered = soundings.filter(s => !filterDate || s.date === filterDate);
   const canApprove = (s) => {
     if(user.role==="supervisor" && s.status==="pending_supervisor") return true;
@@ -855,6 +860,10 @@ function SoundingTab({ user, perm, soundings, filterDate, setFilterDate, onNew, 
                 )}
                 {s.status==="approved_manager" && <span style={{ fontSize:10, color:"#34d399" }}>✓ Final</span>}
                 {s.status==="rejected" && <span style={{ fontSize:10, color:"#ef4444" }}>Rejected</span>}
+                {perm.deleteRecord && (
+                  <button className="btn-act" onClick={()=>{ if(window.confirm("Delete this sounding record?")) onDelete(s.id); }}
+                    style={{ padding:"4px 8px", background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:5, color:"#ef4444", fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>🗑</button>
+                )}
               </div>
             </div>
           );
@@ -865,7 +874,7 @@ function SoundingTab({ user, perm, soundings, filterDate, setFilterDate, onNew, 
 }
 
 // ─── CARGO TAB ────────────────────────────────────────────────────────────────
-function CargoTab({ user, perm, cargo, filterDate, setFilterDate, onNew, onApprove, onReject }) {
+function CargoTab({ user, perm, cargo, filterDate, setFilterDate, onNew, onApprove, onReject, onDelete }) {
   const filtered = cargo.filter(c=> !filterDate || c.date===filterDate);
   const canApprove = (c) => {
     if(user.role==="supervisor" && c.status==="pending_supervisor") return true;
@@ -949,6 +958,10 @@ function CargoTab({ user, perm, cargo, filterDate, setFilterDate, onNew, onAppro
                 )}
                 {c.status==="approved_manager" && <span style={{ fontSize:10, color:"#34d399" }}>✓ Final</span>}
                 {c.status==="rejected" && <span style={{ fontSize:10, color:"#ef4444" }}>Rejected</span>}
+                {perm.deleteRecord && (
+                  <button className="btn-act" onClick={()=>{ if(window.confirm("Delete this cargo record?")) onDelete(c.id); }}
+                    style={{ padding:"4px 8px", background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:5, color:"#ef4444", fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>🗑</button>
+                )}
               </div>
             </div>
           );
@@ -959,7 +972,7 @@ function CargoTab({ user, perm, cargo, filterDate, setFilterDate, onNew, onAppro
 }
 
 // ─── DISTRIBUTION TAB ─────────────────────────────────────────────────────────
-function DistribTab({ user, perm, distributions, filterDate, setFilterDate, onNew, onApprove, onReject }) {
+function DistribTab({ user, perm, distributions, filterDate, setFilterDate, onNew, onApprove, onReject, onDelete }) {
   const filtered = distributions.filter(d => !filterDate || d.date === filterDate);
   const canApprove = (d) => {
     if(user.role==="supervisor" && d.status==="pending_supervisor") return true;
@@ -1028,6 +1041,10 @@ function DistribTab({ user, perm, distributions, filterDate, setFilterDate, onNe
                 )}
                 {d.status==="approved_manager" && <span style={{ fontSize:10, color:"#34d399" }}>✓ Final</span>}
                 {d.status==="rejected" && <span style={{ fontSize:10, color:"#ef4444" }}>Rejected</span>}
+                {perm.deleteRecord && (
+                  <button className="btn-act" onClick={()=>{ if(window.confirm("Delete this distribution record?")) onDelete(d.id); }}
+                    style={{ padding:"4px 8px", background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:5, color:"#ef4444", fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>🗑</button>
+                )}
               </div>
             </div>
           );
