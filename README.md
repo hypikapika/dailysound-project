@@ -16,10 +16,10 @@ A full-featured web app for managing oil tank soundings, cargo in/out operations
 ## Demo Accounts
 | Role | Username | Password |
 |------|----------|----------|
-| Admin | `admin` | `admin123` |
-| Manager | `manager` | `manager123` |
-| Supervisor | `supervisor` | `supervisor123` |
-| User | `user` | `user123` |
+| Admin | 
+| Manager |
+| Supervisor |
+| User |
 
 ---
 
