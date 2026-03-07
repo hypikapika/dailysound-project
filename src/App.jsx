@@ -28,6 +28,10 @@ const GLOBAL_CSS = `
   .tank-bar { transition: height 0.6s cubic-bezier(.4,0,.2,1); }
   .blink { animation: blink 1s step-end infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .sidebar-slide { transition: transform 0.25s cubic-bezier(.4,0,.2,1), opacity 0.25s; }
+  .sidebar-overlay { animation: fIn 0.2s ease; }
+  .bottom-nav-item { transition: all 0.15s; cursor: pointer; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; border-radius:10px; flex:1; }
+  .bottom-nav-item:active { transform: scale(0.92); }
 `;
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -194,6 +198,14 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [clock, setClock] = useState(new Date());
   const [filterDate, setFilterDate] = useState(today());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => { const t = setInterval(()=>setClock(new Date()),1000); return ()=>clearInterval(t); },[]);
 
@@ -300,123 +312,183 @@ export default function App() {
   ).length;
 
   // ─── RENDER ─────────────────────────────────────────────────────────────────
+  const navItems = [
+    { id:"dashboard", icon:"◈", label:"Dashboard" },
+    { id:"sounding",  icon:"▾", label:"Sounding" },
+    { id:"cargo",     icon:"⇄", label:"Cargo" },
+    { id:"stock",     icon:"▦", label:"Stock" },
+    { id:"approval",  icon:"✓", label:"Approvals", badge: pendingCount },
+    ...(perm.viewAll ? [{ id:"report", icon:"◉", label:"Reports" }] : []),
+    ...(perm.manageUsers ? [{ id:"users", icon:"⊕", label:"Users" }] : []),
+  ];
+
+  const handleTabChange = (id) => { setTab(id); setSidebarOpen(false); };
+
+  const SidebarContent = () => (
+    <>
+      {/* Logo */}
+      <div style={{ marginBottom:28 }}>
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:26, letterSpacing:3, lineHeight:1 }}>
+          DAILY<span style={{ color:"#00c8ff" }}>SOUND</span>
+        </div>
+        <div style={{ fontSize:9, letterSpacing:2, color:"rgba(0,200,255,0.4)", textTransform:"uppercase", marginTop:2 }}>Stock Control System</div>
+      </div>
+
+      {/* Clock & Session */}
+      <div style={{ background:"rgba(0,200,255,0.05)", border:"1px solid rgba(0,200,255,0.12)", borderRadius:10, padding:"12px 14px", marginBottom:20 }}>
+        <div style={{ fontSize:22, fontWeight:700, color:"#00c8ff", letterSpacing:2 }}>
+          {clock.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
+        </div>
+        <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginTop:2 }}>
+          {clock.toLocaleDateString("id-ID",{weekday:"short",day:"2-digit",month:"short",year:"numeric"})}
+        </div>
+        <div style={{ marginTop:8, display:"flex", alignItems:"center", gap:6 }}>
+          <span className="pulse" style={{ width:6, height:6, borderRadius:"50%", background: currentSession==="morning"?"#fbbf24":"#60a5fa", display:"inline-block" }} />
+          <span style={{ fontSize:10, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:1 }}>
+            {currentSession==="morning"?"Morning":"Afternoon"} · {sessionTime}
+          </span>
+        </div>
+      </div>
+
+      {/* User */}
+      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)", borderRadius:10, marginBottom:20 }}>
+        <div style={{ width:34, height:34, borderRadius:"50%", background:"linear-gradient(135deg,#0070a8,#00c8ff)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:800, flexShrink:0 }}>
+          {user.avatar}
+        </div>
+        <div>
+          <div style={{ fontSize:12, fontWeight:600, color:"#fff" }}>{user.name}</div>
+          <RoleBadge role={user.role} />
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex:1 }}>
+        {navItems.map(item=>(
+          <div key={item.id}
+            className={`nav-btn ${tab===item.id?"active":""}`}
+            onClick={()=>handleTabChange(item.id)}
+            style={{ padding:"9px 12px", marginBottom:3, display:"flex", alignItems:"center", gap:10, fontSize:12, color: tab===item.id?"#00c8ff":"rgba(255,255,255,0.45)", borderLeft:"2px solid transparent", borderRadius:8 }}>
+            <span style={{ fontSize:14 }}>{item.icon}</span>
+            <span style={{ flex:1 }}>{item.label}</span>
+            {item.badge>0 && <span style={{ background:"#ef4444", color:"#fff", fontSize:10, fontWeight:800, padding:"1px 6px", borderRadius:10 }}>{item.badge}</span>}
+          </div>
+        ))}
+      </nav>
+
+      <button className="btn-act" onClick={()=>setUser(null)}
+        style={{ border:"1px solid rgba(0,200,255,0.2)", borderRadius:8, padding:"9px", color:"rgba(0,200,255,0.6)", fontSize:11, background:"transparent", cursor:"pointer", fontFamily:"inherit", letterSpacing:1 }}>
+        SIGN OUT
+      </button>
+    </>
+  );
+
   return (
-    <div style={{ minHeight:"100vh", background:"#050810", color:"#e2e8f0", fontFamily:"'Share Tech Mono', monospace", display:"flex" }}>
+    <div style={{ minHeight:"100vh", background:"#050810", color:"#e2e8f0", fontFamily:"'Share Tech Mono', monospace", display:"flex", flexDirection:"column" }}>
       <style>{GLOBAL_CSS}</style>
 
-      {/* ── SIDEBAR ── */}
-      <div style={{ width:230, background:"rgba(0,0,0,0.4)", borderRight:"1px solid rgba(0,200,255,0.08)", padding:"24px 14px", display:"flex", flexDirection:"column", flexShrink:0, backdropFilter:"blur(10px)" }}>
-        {/* Logo */}
-        <div style={{ marginBottom:28 }}>
-          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:26, letterSpacing:3, lineHeight:1 }}>
-            DAILY<span style={{ color:"#00c8ff" }}>SOUND</span>
-          </div>
-          <div style={{ fontSize:9, letterSpacing:2, color:"rgba(0,200,255,0.4)", textTransform:"uppercase", marginTop:2 }}>Stock Control System</div>
-        </div>
+      <div style={{ display:"flex", flex:1, position:"relative" }}>
 
-        {/* Clock & Session */}
-        <div style={{ background:"rgba(0,200,255,0.05)", border:"1px solid rgba(0,200,255,0.12)", borderRadius:10, padding:"12px 14px", marginBottom:20 }}>
-          <div style={{ fontSize:22, fontWeight:700, color:"#00c8ff", letterSpacing:2 }}>
-            {clock.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
+        {/* ── DESKTOP SIDEBAR ── */}
+        {!isMobile && (
+          <div style={{ width:230, background:"rgba(0,0,0,0.4)", borderRight:"1px solid rgba(0,200,255,0.08)", padding:"24px 14px", display:"flex", flexDirection:"column", flexShrink:0, backdropFilter:"blur(10px)" }}>
+            <SidebarContent />
           </div>
-          <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginTop:2 }}>
-            {clock.toLocaleDateString("id-ID",{weekday:"short",day:"2-digit",month:"short",year:"numeric"})}
-          </div>
-          <div style={{ marginTop:8, display:"flex", alignItems:"center", gap:6 }}>
-            <span className="pulse" style={{ width:6, height:6, borderRadius:"50%", background: currentSession==="morning"?"#fbbf24":"#60a5fa", display:"inline-block" }} />
-            <span style={{ fontSize:10, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:1 }}>
-              {currentSession==="morning"?"Morning":"Afternoon"} Session · {sessionTime}
-            </span>
-          </div>
-        </div>
+        )}
 
-        {/* User */}
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)", borderRadius:10, marginBottom:20 }}>
-          <div style={{ width:34, height:34, borderRadius:"50%", background:"linear-gradient(135deg,#0070a8,#00c8ff)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:800, flexShrink:0 }}>
-            {user.avatar}
-          </div>
-          <div>
-            <div style={{ fontSize:12, fontWeight:600, color:"#fff" }}>{user.name}</div>
-            <RoleBadge role={user.role} />
-          </div>
-        </div>
+        {/* ── MOBILE OVERLAY SIDEBAR ── */}
+        {isMobile && sidebarOpen && (
+          <>
+            {/* Backdrop */}
+            <div className="sidebar-overlay" onClick={()=>setSidebarOpen(false)}
+              style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:200, backdropFilter:"blur(4px)" }} />
+            {/* Drawer */}
+            <div className="sidebar-slide"
+              style={{ position:"fixed", top:0, left:0, bottom:0, width:260, background:"#080d1a", borderRight:"1px solid rgba(0,200,255,0.15)", padding:"24px 16px", display:"flex", flexDirection:"column", zIndex:201, overflowY:"auto" }}>
+              {/* Close btn */}
+              <button onClick={()=>setSidebarOpen(false)}
+                style={{ position:"absolute", top:16, right:16, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:"50%", width:32, height:32, color:"rgba(255,255,255,0.6)", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                ✕
+              </button>
+              <SidebarContent />
+            </div>
+          </>
+        )}
 
-        {/* Nav */}
-        <nav style={{ flex:1 }}>
-          {[
-            { id:"dashboard", icon:"◈", label:"Dashboard" },
-            { id:"sounding",  icon:"▾", label:"Daily Sounding" },
-            { id:"cargo",     icon:"⇄", label:"Cargo In/Out" },
-            { id:"stock",     icon:"▦", label:"Stock Control" },
-            { id:"approval",  icon:"✓", label:`Approvals`, badge: pendingCount },
-            ...(perm.viewAll ? [{ id:"report", icon:"◉", label:"Reports" }] : []),
-            ...(perm.manageUsers ? [{ id:"users", icon:"⊕", label:"Users & Roles" }] : []),
-          ].map(item=>(
+        {/* ── MAIN CONTENT ── */}
+        <div style={{ flex:1, overflow:"auto", padding: isMobile ? "16px 16px 80px" : "28px 32px" }}>
+
+          {/* Mobile top bar */}
+          {isMobile && (
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, padding:"10px 14px", background:"rgba(0,0,0,0.4)", borderRadius:12, border:"1px solid rgba(0,200,255,0.08)" }}>
+              <div>
+                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:20, letterSpacing:3 }}>
+                  DAILY<span style={{ color:"#00c8ff" }}>SOUND</span>
+                </div>
+                <div style={{ fontSize:9, color:"rgba(0,200,255,0.4)", letterSpacing:2 }}>
+                  {clock.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})} ·{" "}
+                  <span className="pulse" style={{ display:"inline-block", width:5, height:5, borderRadius:"50%", background: currentSession==="morning"?"#fbbf24":"#60a5fa", verticalAlign:"middle", marginRight:3 }} />
+                  {currentSession==="morning"?"Morning":"Afternoon"}
+                </div>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                {pendingCount > 0 && (
+                  <div style={{ background:"#ef4444", color:"#fff", fontSize:10, fontWeight:800, padding:"2px 7px", borderRadius:10 }}>{pendingCount}</div>
+                )}
+                <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#0070a8,#00c8ff)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:800 }}>
+                  {user.avatar}
+                </div>
+                <button onClick={()=>setSidebarOpen(true)}
+                  style={{ background:"rgba(0,200,255,0.08)", border:"1px solid rgba(0,200,255,0.2)", borderRadius:8, width:36, height:36, color:"#00c8ff", fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  ☰
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab==="dashboard" && <DashboardTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} pendingCount={pendingCount} isMobile={isMobile} />}
+          {tab==="sounding" && <SoundingTab user={user} perm={perm} soundings={soundings} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"sounding"})} onApprove={approveSounding} onReject={rejectSounding} currentSession={currentSession} isMobile={isMobile} />}
+          {tab==="cargo" && <CargoTab user={user} perm={perm} cargo={cargo} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"cargo"})} onApprove={approveCargo} onReject={rejectCargo} isMobile={isMobile} />}
+          {tab==="stock" && <StockControlTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} perm={perm} onClose={closeStockForDay} closingStock={closingStock} isMobile={isMobile} />}
+          {tab==="approval" && <ApprovalTab user={user} perm={perm} soundings={soundings} cargo={cargo} onApproveSounding={approveSounding} onRejectSounding={rejectSounding} onApproveCargo={approveCargo} onRejectCargo={rejectCargo} isMobile={isMobile} />}
+          {tab==="report" && perm.viewAll && <ReportTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} isMobile={isMobile} />}
+          {tab==="users" && perm.manageUsers && <UsersTab />}
+        </div>
+      </div>
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      {isMobile && (
+        <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"rgba(5,8,16,0.97)", borderTop:"1px solid rgba(0,200,255,0.12)", padding:"6px 8px 10px", display:"flex", zIndex:150, backdropFilter:"blur(16px)" }}>
+          {navItems.slice(0,5).map(item=>(
             <div key={item.id}
-              className={`nav-btn ${tab===item.id?"active":""}`}
-              onClick={()=>setTab(item.id)}
-              style={{ padding:"9px 12px", marginBottom:3, display:"flex", alignItems:"center", gap:10, fontSize:12, color: tab===item.id?"#00c8ff":"rgba(255,255,255,0.45)", borderLeft:"2px solid transparent", borderRadius:8 }}>
-              <span style={{ fontSize:14 }}>{item.icon}</span>
-              <span style={{ flex:1 }}>{item.label}</span>
-              {item.badge>0 && <span style={{ background:"#ef4444", color:"#fff", fontSize:10, fontWeight:800, padding:"1px 6px", borderRadius:10 }}>{item.badge}</span>}
+              className="bottom-nav-item"
+              onClick={()=>handleTabChange(item.id)}
+              style={{ background: tab===item.id?"rgba(0,200,255,0.1)":"transparent", color: tab===item.id?"#00c8ff":"rgba(255,255,255,0.35)", position:"relative" }}>
+              <span style={{ fontSize:18, lineHeight:1 }}>{item.icon}</span>
+              <span style={{ fontSize:9, letterSpacing:0.5, textTransform:"uppercase" }}>{item.label}</span>
+              {item.badge>0 && (
+                <span style={{ position:"absolute", top:4, right:"50%", transform:"translateX(10px)", background:"#ef4444", color:"#fff", fontSize:8, fontWeight:800, padding:"1px 4px", borderRadius:8, minWidth:14, textAlign:"center" }}>
+                  {item.badge}
+                </span>
+              )}
             </div>
           ))}
-        </nav>
-
-        <button className="btn-act" onClick={()=>setUser(null)}
-          style={{ border:"1px solid rgba(0,200,255,0.2)", borderRadius:8, padding:"9px", color:"rgba(0,200,255,0.6)", fontSize:11, background:"transparent", cursor:"pointer", fontFamily:"inherit", letterSpacing:1 }}>
-          SIGN OUT
-        </button>
-      </div>
-
-      {/* ── CONTENT ── */}
-      <div style={{ flex:1, overflow:"auto", padding:"28px 32px" }}>
-
-        {/* ════ DASHBOARD ════ */}
-        {tab==="dashboard" && <DashboardTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} pendingCount={pendingCount} />}
-
-        {/* ════ SOUNDING ════ */}
-        {tab==="sounding" && (
-          <SoundingTab user={user} perm={perm} soundings={soundings} filterDate={filterDate} setFilterDate={setFilterDate}
-            onNew={()=>setModal({type:"sounding"})} onApprove={approveSounding} onReject={rejectSounding} currentSession={currentSession} />
-        )}
-
-        {/* ════ CARGO ════ */}
-        {tab==="cargo" && (
-          <CargoTab user={user} perm={perm} cargo={cargo} filterDate={filterDate} setFilterDate={setFilterDate}
-            onNew={()=>setModal({type:"cargo"})} onApprove={approveCargo} onReject={rejectCargo} />
-        )}
-
-        {/* ════ STOCK CONTROL ════ */}
-        {tab==="stock" && (
-          <StockControlTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels}
-            getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate}
-            perm={perm} onClose={closeStockForDay} closingStock={closingStock} />
-        )}
-
-        {/* ════ APPROVALS ════ */}
-        {tab==="approval" && (
-          <ApprovalTab user={user} perm={perm} soundings={soundings} cargo={cargo}
-            onApproveSounding={approveSounding} onRejectSounding={rejectSounding}
-            onApproveCargo={approveCargo} onRejectCargo={rejectCargo} />
-        )}
-
-        {/* ════ REPORTS ════ */}
-        {tab==="report" && perm.viewAll && (
-          <ReportTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} />
-        )}
-
-        {/* ════ USERS ════ */}
-        {tab==="users" && perm.manageUsers && <UsersTab />}
-      </div>
+          {/* More button for extra tabs */}
+          {navItems.length > 5 && (
+            <div className="bottom-nav-item" onClick={()=>setSidebarOpen(true)}
+              style={{ color:"rgba(255,255,255,0.35)" }}>
+              <span style={{ fontSize:18 }}>⋯</span>
+              <span style={{ fontSize:9, letterSpacing:0.5, textTransform:"uppercase" }}>More</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── MODALS ── */}
       {modal && (
         <div className="modal-bg" onClick={()=>setModal(null)}
-          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}>
           <div className="modal-card" onClick={e=>e.stopPropagation()}
-            style={{ background:"#0a0f1e", border:"1px solid rgba(0,200,255,0.15)", borderRadius:16, padding:32, width:"92%", maxWidth:520, maxHeight:"88vh", overflowY:"auto" }}>
-
+            style={{ background:"#0a0f1e", border:"1px solid rgba(0,200,255,0.15)", borderRadius:16, padding: isMobile ? 20 : 32, width:"94%", maxWidth:520, maxHeight:"92vh", overflowY:"auto" }}>
             {modal.type==="sounding" && <SoundingForm user={user} onSubmit={submitSounding} onCancel={()=>setModal(null)} currentSession={currentSession} />}
             {modal.type==="cargo"    && <CargoForm    user={user} onSubmit={submitCargo}    onCancel={()=>setModal(null)} />}
           </div>
@@ -425,16 +497,19 @@ export default function App() {
 
       {/* ── TOAST ── */}
       {toast && (
-        <div className="toast-anim" style={{ position:"fixed", bottom:24, right:24, background: toast.type==="warn"?"#f59e0b":toast.type==="err"?"#ef4444":"#00c8ff", color:"#000", padding:"12px 20px", borderRadius:10, fontSize:12, fontWeight:800, zIndex:200, letterSpacing:0.5 }}>
+        <div className="toast-anim" style={{ position:"fixed", bottom: isMobile ? 80 : 24, right:16, background: toast.type==="warn"?"#f59e0b":toast.type==="err"?"#ef4444":"#00c8ff", color:"#000", padding:"12px 20px", borderRadius:10, fontSize:12, fontWeight:800, zIndex:400, letterSpacing:0.5 }}>
           {toast.msg}
         </div>
+      )}
+    </div>
+  );
       )}
     </div>
   );
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, filterDate, setFilterDate, pendingCount }) {
+function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, filterDate, setFilterDate, pendingCount, isMobile }) {
   const totalValue = tanks.reduce((a,t)=>{
     const vol = stockLevels[t.id]||0;
     return a + vol;
@@ -452,7 +527,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
       </div>
 
       {/* Stats row */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:28 }}>
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap:16, marginBottom:28 }}>
         {[
           { label:"Total Tanks",      val:tanks.length,    sub:"active tanks",         color:"#00c8ff" },
           { label:"Total Volume",     val:fmt(totalValue)+" KL", sub:"combined stock", color:"#34d399" },
@@ -470,7 +545,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
       {/* Tank Visual Overview */}
       <div style={{ marginBottom:28 }}>
         <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:14 }}>Tank Status — {fmtDate(filterDate)}</div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
+        <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap:12 }}>
           {tanks.map(tank=>{
             const ctrl = getControlStock(tank.id, filterDate);
             const cur = stockLevels[tank.id] || ctrl.morning || 0;
@@ -505,7 +580,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
       </div>
 
       {/* Recent activity */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:16 }}>
         <div>
           <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:12 }}>Recent Soundings</div>
           <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:10, overflow:"hidden" }}>
