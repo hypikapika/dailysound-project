@@ -10,31 +10,57 @@ const GLOBAL_CSS = `
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(0,200,255,0.2); border-radius: 2px; }
-  input, select, textarea, button { outline: none; font-family: 'Share Tech Mono', monospace; }
+
+  input, select, textarea, button {
+    outline: none;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  input, select, textarea {
+    color-scheme: dark;
+  }
+
   input:focus, select:focus, textarea:focus {
     border-color: #00c8ff !important;
     box-shadow: 0 0 0 2px rgba(0,200,255,0.1);
   }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.85;
+    cursor: pointer;
+  }
+
   .nav-btn { transition: all 0.15s ease; cursor: pointer; }
   .nav-btn:hover { background: rgba(0,200,255,0.08) !important; }
   .nav-btn.active { background: rgba(0,200,255,0.12) !important; border-left: 2px solid #00c8ff !important; }
+
   .row:hover { background: rgba(0,200,255,0.03) !important; }
+
   .btn-act { transition: all 0.15s; cursor: pointer; }
   .btn-act:hover { filter: brightness(1.12); transform: translateY(-1px); }
   .btn-act:active { transform: scale(0.97); }
+
   .modal-bg { animation: fIn 0.15s ease; }
   .modal-card { animation: sUp 0.2s ease; }
+
   @keyframes fIn { from{opacity:0} to{opacity:1} }
   @keyframes sUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
   .toast-anim { animation: tIn 0.3s ease; }
   @keyframes tIn { from{transform:translateX(60px);opacity:0} to{transform:translateX(0);opacity:1} }
+
   .pulse { animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-  .tank-bar { transition: height 0.6s cubic-bezier(.4,0,.2,1); }
+
+  .tank-bar { transition: height 0.6s cubic-bezier(.4,0,.2,1), width 0.6s cubic-bezier(.4,0,.2,1); }
+
   .blink { animation: blink 1s step-end infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
   .sidebar-slide { transition: transform 0.25s cubic-bezier(.4,0,.2,1), opacity 0.25s; }
   .sidebar-overlay { animation: fIn 0.2s ease; }
+
   .bottom-nav-item {
     transition: all 0.15s;
     cursor: pointer;
@@ -191,6 +217,7 @@ function getVolumeFromLevel(tankId, levelCm) {
 
 const today = () => new Date().toISOString().split("T")[0];
 const fmt = (n) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(n ?? 0);
+const fmtLiter = (n) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(n ?? 0);
 const fmtDate = (d) =>
   new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 const fmtTime = () =>
@@ -250,20 +277,145 @@ function inputStyle() {
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 const SEED_SOUNDINGS = [
-  { id: "S001", tankId: "T1", date: "2026-03-07", session: "morning", time: "07:15", noSounding: false, reason: "", level: 331, volume: 1655, temp: 30, status: "approved_manager", submittedBy: "nikco", supervisorApproval: "approved", managerApproval: "approved", note: "Opening stock" },
-  { id: "S002", tankId: "T2", date: "2026-03-07", session: "morning", time: "07:30", noSounding: false, reason: "", level: 925, volume: 925, temp: 30, status: "approved_manager", submittedBy: "nota", supervisorApproval: "approved", managerApproval: "approved", note: "Opening stock" },
-  { id: "S003", tankId: "T3", date: "2026-03-07", session: "morning", time: "07:45", noSounding: false, reason: "", level: 827, volume: 781, temp: 30, status: "approved_manager", submittedBy: "nicko", supervisorApproval: "approved", managerApproval: "approved", note: "Opening stock" },
-  { id: "S004", tankId: "T4", date: "2026-03-07", session: "morning", time: "08:00", noSounding: false, reason: "", level: 57, volume: 17.9, temp: 31, status: "approved_manager", submittedBy: "nota", supervisorApproval: "approved", managerApproval: "approved", note: "Opening stock" },
+  {
+    id: "S001",
+    tankId: "T1",
+    date: "2026-03-07",
+    session: "morning",
+    time: "07:15",
+    noSounding: false,
+    reason: "",
+    level: 331,
+    volume: 1655,
+    volumeLiter: 1655000,
+    temp: 30,
+    operatorName: "Nikco",
+    status: "approved_manager",
+    submittedBy: "nikco",
+    supervisorApproval: "approved",
+    managerApproval: "approved",
+    note: "Opening stock",
+  },
+  {
+    id: "S002",
+    tankId: "T2",
+    date: "2026-03-07",
+    session: "morning",
+    time: "07:30",
+    noSounding: false,
+    reason: "",
+    level: 925,
+    volume: 925,
+    volumeLiter: 925000,
+    temp: 30,
+    operatorName: "Nota",
+    status: "approved_manager",
+    submittedBy: "nota",
+    supervisorApproval: "approved",
+    managerApproval: "approved",
+    note: "Opening stock",
+  },
+  {
+    id: "S003",
+    tankId: "T3",
+    date: "2026-03-07",
+    session: "morning",
+    time: "07:45",
+    noSounding: false,
+    reason: "",
+    level: 827,
+    volume: 781,
+    volumeLiter: 781000,
+    temp: 30,
+    operatorName: "Nicko",
+    status: "approved_manager",
+    submittedBy: "nicko",
+    supervisorApproval: "approved",
+    managerApproval: "approved",
+    note: "Opening stock",
+  },
+  {
+    id: "S004",
+    tankId: "T4",
+    date: "2026-03-07",
+    session: "morning",
+    time: "08:00",
+    noSounding: false,
+    reason: "",
+    level: 57,
+    volume: 17.9,
+    volumeLiter: 17900,
+    temp: 31,
+    operatorName: "Nota",
+    status: "approved_manager",
+    submittedBy: "nota",
+    supervisorApproval: "approved",
+    managerApproval: "approved",
+    note: "Opening stock",
+  },
 ];
 
 const SEED_DISTRIBUTIONS = [
-  { id: "D001", tankId: "T4", date: "2026-03-07", time: "09:15", volume: 5.0, recipient: "Koperasi Tani Makmur", vehicleRef: "B 1122 CD", product: "Biosolar B35", status: "approved_manager", submittedBy: "kim", supervisorApproval: "approved", managerApproval: "approved", note: "Subsidi kuota harian" },
+  {
+    id: "D001",
+    tankId: "T4",
+    date: "2026-03-07",
+    time: "09:15",
+    volume: 5.0,
+    recipient: "Koperasi Tani Makmur",
+    vehicleRef: "B 1122 CD",
+    product: "Biosolar B35",
+    status: "approved_manager",
+    submittedBy: "kim",
+    supervisorApproval: "approved",
+    managerApproval: "approved",
+    note: "Subsidi kuota harian",
+  },
 ];
 
 const SEED_CARGO = [
-  { id: "C001", tankId: "T1", type: "in", date: "2026-03-05", volume: 3000, vesselRef: "MT Pertiwi", bL: "BL-2026-001", status: "approved_manager", submittedBy: "kim", supervisorApproval: "approved", managerApproval: "approved", note: "Loading HSD from refinery" },
-  { id: "C002", tankId: "T2", type: "out", date: "2026-03-05", volume: 1500, vesselRef: "MT Merdeka", bL: "BL-2026-002", status: "pending_supervisor", submittedBy: "kim", supervisorApproval: "pending", managerApproval: "pending", note: "FAME discharge to vessel" },
-  { id: "C003", tankId: "T1", type: "in", date: "2026-03-06", volume: 800, vesselRef: "MT Nusantara", bL: "BL-2026-003", status: "approved_supervisor", submittedBy: "subandi", supervisorApproval: "approved", managerApproval: "pending", note: "HSD loading" },
+  {
+    id: "C001",
+    tankId: "T1",
+    type: "in",
+    date: "2026-03-05",
+    volume: 3000,
+    vesselRef: "MT Pertiwi",
+    bL: "BL-2026-001",
+    status: "approved_manager",
+    submittedBy: "kim",
+    supervisorApproval: "approved",
+    managerApproval: "approved",
+    note: "Loading HSD from refinery",
+  },
+  {
+    id: "C002",
+    tankId: "T2",
+    type: "out",
+    date: "2026-03-05",
+    volume: 1500,
+    vesselRef: "MT Merdeka",
+    bL: "BL-2026-002",
+    status: "pending_supervisor",
+    submittedBy: "kim",
+    supervisorApproval: "pending",
+    managerApproval: "pending",
+    note: "FAME discharge to vessel",
+  },
+  {
+    id: "C003",
+    tankId: "T1",
+    type: "in",
+    date: "2026-03-06",
+    volume: 800,
+    vesselRef: "MT Nusantara",
+    bL: "BL-2026-003",
+    status: "approved_supervisor",
+    submittedBy: "subandi",
+    supervisorApproval: "approved",
+    managerApproval: "pending",
+    note: "HSD loading",
+  },
 ];
 
 const computeStockFromSoundings = () => {
@@ -533,18 +685,19 @@ function Modal({ title, onClose, children }) {
       <div
         className="modal-card"
         style={{
-          width: 560,
+          width: 680,
           maxWidth: "100%",
-          background: "#0b1220",
+          background: "#071126",
           border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 16,
-          padding: 20,
+          borderRadius: 22,
+          padding: 24,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
-          <button onClick={onClose} style={btnGhostStyle()}>
+          <button onClick={onClose} style={{ ...btnGhostStyle(), padding: "12px 18px" }}>
             Close
           </button>
         </div>
@@ -555,7 +708,7 @@ function Modal({ title, onClose, children }) {
 }
 
 // ─── FORMS ────────────────────────────────────────────────────────────────────
-function NewSoundingForm({ onSubmit, onCancel }) {
+function NewSoundingForm({ onSubmit, onCancel, currentUser }) {
   const [tankId, setTankId] = useState("T1");
   const [date, setDate] = useState(today());
   const [session, setSession] = useState("morning");
@@ -565,8 +718,10 @@ function NewSoundingForm({ onSubmit, onCancel }) {
   const [note, setNote] = useState("");
   const [noSounding, setNoSounding] = useState(false);
   const [reason, setReason] = useState("");
+  const [operatorName, setOperatorName] = useState(currentUser?.name || "");
 
   const volume = noSounding ? null : getVolumeFromLevel(tankId, level);
+  const volumeLiter = volume !== null ? Math.round(volume * 1000) : null;
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -588,6 +743,13 @@ function NewSoundingForm({ onSubmit, onCancel }) {
 
       <input value={time} onChange={(e) => setTime(e.target.value)} placeholder="HH:MM" style={inputStyle()} />
 
+      <input
+        placeholder="Operator Name"
+        value={operatorName}
+        onChange={(e) => setOperatorName(e.target.value)}
+        style={inputStyle()}
+      />
+
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
         <input type="checkbox" checked={noSounding} onChange={(e) => setNoSounding(e.target.checked)} />
         No Sounding
@@ -602,6 +764,7 @@ function NewSoundingForm({ onSubmit, onCancel }) {
             onChange={(e) => setLevel(e.target.value)}
             style={inputStyle()}
           />
+
           <input
             type="number"
             placeholder="Temperature"
@@ -609,8 +772,22 @@ function NewSoundingForm({ onSubmit, onCancel }) {
             onChange={(e) => setTemp(e.target.value)}
             style={inputStyle()}
           />
-          <div style={{ ...cardStyle(), padding: 12 }}>
-            Calculated volume: <b>{volume !== null ? `${fmt(volume)} KL` : "-"}</b>
+
+          <input
+            type="number"
+            placeholder="Volume (Liter)"
+            value={volumeLiter ?? ""}
+            readOnly
+            style={{
+              ...inputStyle(),
+              background: "rgba(255,255,255,0.04)",
+              color: "#9fe8ff",
+            }}
+          />
+
+          <div style={{ ...cardStyle(), padding: 14, background: "rgba(255,255,255,0.025)" }}>
+            <div>Calculated volume (KL): <b>{volume !== null ? `${fmt(volume)} KL` : "-"}</b></div>
+            <div style={{ marginTop: 6 }}>Calculated volume (Liter): <b>{volumeLiter !== null ? `${fmtLiter(volumeLiter)} L` : "-"}</b></div>
           </div>
         </>
       ) : (
@@ -623,7 +800,7 @@ function NewSoundingForm({ onSubmit, onCancel }) {
       )}
 
       <textarea
-        rows={3}
+        rows={4}
         placeholder="Note"
         value={note}
         onChange={(e) => setNote(e.target.value)}
@@ -639,10 +816,12 @@ function NewSoundingForm({ onSubmit, onCancel }) {
               date,
               session,
               time,
+              operatorName,
               noSounding,
               reason,
               level: noSounding ? null : Number(level),
               volume: noSounding ? null : volume,
+              volumeLiter: noSounding ? null : volumeLiter,
               temp: noSounding ? null : Number(temp),
               note,
             })
@@ -1124,6 +1303,23 @@ export default function App() {
   const renderDashboard = () => {
     const totalStock = Object.values(stockLevels).reduce((a, b) => a + b, 0);
     const totalCapacity = TANKS_DB.reduce((a, b) => a + b.capacity, 0);
+    const totalStockLiter = Math.round(totalStock * 1000);
+
+    const approvedTodaySoundings = soundings.filter(
+      (s) => s.date === filterDate && s.status === "approved_manager" && !s.noSounding
+    );
+
+    const dashboardVolumeKL = approvedTodaySoundings.reduce((a, s) => a + (s.volume || 0), 0);
+    const dashboardVolumeLiter = approvedTodaySoundings.reduce((a, s) => a + (s.volumeLiter || 0), 0);
+
+    const operatorMap = {};
+    approvedTodaySoundings.forEach((s) => {
+      const key = s.operatorName || "Unknown";
+      operatorMap[key] = (operatorMap[key] || 0) + 1;
+    });
+
+    const operatorStats = Object.entries(operatorMap).map(([name, count]) => ({ name, count }));
+    const maxOperatorCount = Math.max(...operatorStats.map((x) => x.count), 1);
 
     return (
       <div style={{ display: "grid", gap: 16 }}>
@@ -1132,17 +1328,123 @@ export default function App() {
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Total Tanks</div>
             <div style={{ marginTop: 8, fontSize: 28, fontWeight: 700 }}>{TANKS_DB.length}</div>
           </div>
+
           <div style={cardStyle()}>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Current Stock</div>
             <div style={{ marginTop: 8, fontSize: 28, fontWeight: 700 }}>{fmt(totalStock)} KL</div>
+            <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+              {fmtLiter(totalStockLiter)} L
+            </div>
           </div>
+
           <div style={cardStyle()}>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Capacity</div>
             <div style={{ marginTop: 8, fontSize: 28, fontWeight: 700 }}>{fmt(totalCapacity)} KL</div>
           </div>
+
           <div style={cardStyle()}>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Pending Approvals</div>
             <div style={{ marginTop: 8, fontSize: 28, fontWeight: 700 }}>{pendingCount}</div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr", gap: 16 }}>
+          <div style={cardStyle()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 10, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>Dashboard Information</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
+                  Approved sounding summary for {fmtDate(filterDate)}
+                </div>
+              </div>
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                style={{ ...inputStyle(), width: 170 }}
+              />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12, marginBottom: 14 }}>
+              <div style={cardStyle({ padding: 12 })}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Approved Soundings</div>
+                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{approvedTodaySoundings.length}</div>
+              </div>
+
+              <div style={cardStyle({ padding: 12 })}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Total Volume (KL)</div>
+                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{fmt(dashboardVolumeKL)}</div>
+              </div>
+
+              <div style={cardStyle({ padding: 12 })}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Total Volume (Liter)</div>
+                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{fmtLiter(dashboardVolumeLiter)}</div>
+              </div>
+            </div>
+
+            <div style={{ ...cardStyle(), padding: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Volume Graphic by Tank</div>
+              <div style={{ display: "grid", gap: 12 }}>
+                {TANKS_DB.map((tank) => {
+                  const rec = approvedTodaySoundings.find((s) => s.tankId === tank.id);
+                  const volKL = rec?.volume || 0;
+                  const pct = Math.max(0, Math.min(100, (volKL / tank.capacity) * 100));
+
+                  return (
+                    <div key={tank.id}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                        <span>{tank.name}</span>
+                        <span>{fmt(volKL)} KL / {fmtLiter(rec?.volumeLiter || 0)} L</span>
+                      </div>
+                      <div style={{ height: 10, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                        <div
+                          className="tank-bar"
+                          style={{
+                            height: "100%",
+                            width: `${pct}%`,
+                            background: "linear-gradient(90deg,#00c8ff,#34d399)",
+                            borderRadius: 999,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div style={cardStyle()}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Operator Graphic</div>
+
+            {operatorStats.length === 0 ? (
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>No approved sounding data for selected date.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 12 }}>
+                {operatorStats.map((op) => {
+                  const width = (op.count / maxOperatorCount) * 100;
+                  return (
+                    <div key={op.name}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                        <span>{op.name}</span>
+                        <span>{op.count} sounding</span>
+                      </div>
+                      <div style={{ height: 12, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                        <div
+                          className="tank-bar"
+                          style={{
+                            height: "100%",
+                            width: `${width}%`,
+                            background: "linear-gradient(90deg,#60a5fa,#00c8ff)",
+                            borderRadius: 999,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1195,6 +1497,10 @@ export default function App() {
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 12 }}>
                     <span>{fmt(volume)} KL</span>
                     <span>{pct.toFixed(1)}%</span>
+                  </div>
+
+                  <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+                    {fmtLiter(Math.round(volume * 1000))} L
                   </div>
 
                   <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
@@ -1250,12 +1556,14 @@ export default function App() {
                   {s.noSounding ? (
                     <>No sounding — {s.reason || "-"}</>
                   ) : (
-                    <>Level: {s.level} cm · Volume: {fmt(s.volume)} KL · Temp: {s.temp} °C</>
+                    <>
+                      Level: {s.level} cm · Volume: {fmt(s.volume)} KL · {fmtLiter(s.volumeLiter)} L · Temp: {s.temp} °C
+                    </>
                   )}
                 </div>
 
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-                  Submitted by: {s.submittedBy} {s.note ? `· ${s.note}` : ""}
+                  Operator: {s.operatorName || "-"} · Submitted by: {s.submittedBy} {s.note ? `· ${s.note}` : ""}
                 </div>
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1699,7 +2007,11 @@ export default function App() {
 
       {modal === "new_sounding" && (
         <Modal title="New Sounding" onClose={() => setModal(null)}>
-          <NewSoundingForm onSubmit={submitSounding} onCancel={() => setModal(null)} />
+          <NewSoundingForm
+            onSubmit={submitSounding}
+            onCancel={() => setModal(null)}
+            currentUser={user}
+          />
         </Modal>
       )}
 
