@@ -105,6 +105,18 @@ const writeStorage = (key, value) => {
   }
 };
 
+const normalizeSoundings = (rows) => {
+  if (!Array.isArray(rows)) return SEED_SOUNDINGS;
+  return rows.map((row) => {
+    if (!row || typeof row !== "object") return row;
+    if (row.noSounding) return { ...row, operatorName: row.operatorName || "" };
+    return {
+      ...row,
+      operatorName: row.operatorName || row.submittedBy || "",
+    };
+  });
+};
+
 const fmt = n => new Intl.NumberFormat("id-ID",{maximumFractionDigits:2}).format(n);
 const fmtTime = () => new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
 const fmtDate = d => new Date(d).toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"});
@@ -235,7 +247,7 @@ function Login({ onLogin }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState("dashboard");
-  const [soundings, setSoundings] = useState(() => readStorage(STORAGE_KEYS.soundings, SEED_SOUNDINGS));
+  const [soundings, setSoundings] = useState(() => normalizeSoundings(readStorage(STORAGE_KEYS.soundings, SEED_SOUNDINGS)));
   const [cargo, setCargo] = useState(() => readStorage(STORAGE_KEYS.cargo, SEED_CARGO));
   const [distributions, setDistributions] = useState(() => readStorage(STORAGE_KEYS.distributions, SEED_DISTRIBUTIONS));
   const [stockLevels, setStockLevels] = useState(() => readStorage(STORAGE_KEYS.stockLevels, computeStockFromSoundings()));
