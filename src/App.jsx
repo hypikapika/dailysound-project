@@ -70,10 +70,10 @@ function genId(prefix) { return prefix + "_" + Date.now() + "_" + Math.floor(Mat
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 const SEED_SOUNDINGS = [
-  { id:"S001", tankId:"T1", date:"2026-03-07", session:"morning", level:2.451, volume:1655.196, temp:30, density:0.850, status:"approved_manager", submittedBy:"nikco",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
-  { id:"S002", tankId:"T2", date:"2026-03-07", session:"morning", level:8.254, volume:925.429,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
-  { id:"S003", tankId:"T3", date:"2026-03-07", session:"morning", level:5.624, volume:781.116,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nicko",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
-  { id:"S004", tankId:"T4", date:"2026-03-07", session:"morning", level:5.155, volume:17.958,   temp:31, density:0.890, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S001", tankId:"T1", date:"2026-03-07", session:"morning",   time:"07:15", noSounding:false, reason:"", level:2.451, volume:1655.196, temp:30, density:0.850, status:"approved_manager", submittedBy:"nikco",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S002", tankId:"T2", date:"2026-03-07", session:"morning",   time:"07:30", noSounding:false, reason:"", level:8.254, volume:925.429,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S003", tankId:"T3", date:"2026-03-07", session:"morning",   time:"07:45", noSounding:false, reason:"", level:5.624, volume:781.116,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nicko",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S004", tankId:"T4", date:"2026-03-07", session:"morning",   time:"08:00", noSounding:false, reason:"", level:5.155, volume:17.958,   temp:31, density:0.890, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
 ];
 
 const SEED_CARGO = [
@@ -228,12 +228,28 @@ export default function App() {
   // Compute control stock per tank
   const getControlStock = (tankId, date) => {
     const approved = soundings.filter(s=>s.tankId===tankId && s.status==="approved_manager" && s.date===date);
-    const morning = approved.find(s=>s.session==="morning");
-    const afternoon = approved.find(s=>s.session==="afternoon");
-    const cargoIn = cargo.filter(c=>c.tankId===tankId && c.date===date && c.type==="in" && c.status==="approved_manager").reduce((a,c)=>a+c.volume,0);
+    const morningRec   = approved.find(s=>s.session==="morning");
+    const afternoonRec = approved.find(s=>s.session==="afternoon");
+
+    // A record exists but was flagged as noSounding → treat as no reading
+    const morningVol   = (morningRec   && !morningRec.noSounding)   ? morningRec.volume   : null;
+    const afternoonVol = (afternoonRec && !afternoonRec.noSounding) ? afternoonRec.volume : null;
+
+    const cargoIn  = cargo.filter(c=>c.tankId===tankId && c.date===date && c.type==="in"  && c.status==="approved_manager").reduce((a,c)=>a+c.volume,0);
     const cargoOut = cargo.filter(c=>c.tankId===tankId && c.date===date && c.type==="out" && c.status==="approved_manager").reduce((a,c)=>a+c.volume,0);
-    return { morning: morning?.volume||null, afternoon: afternoon?.volume||null, cargoIn, cargoOut,
-      closing: closingStock[`${tankId}_${date}`] || morning?.volume || null };
+
+    // Opening = morning sounding of this date (morning is the cutoff / opening snapshot)
+    // If no approved morning sounding, fall back to stockLevels (for first-day data)
+    const opening = morningVol ?? closingStock[`${tankId}_${date}`] ?? stockLevels[tankId] ?? 0;
+
+    return {
+      morning: morningVol, afternoon: afternoonVol,
+      morningRec, afternoonRec,
+      cargoIn, cargoOut, opening,
+      closing: morningVol ?? closingStock[`${tankId}_${date}`] ?? null,
+      noMorningSounding: !morningRec || morningRec.noSounding,
+      morningReason: morningRec?.noSounding ? (morningRec.reason || "No reason given") : null,
+    };
   };
 
   // SOUNDING actions
@@ -462,7 +478,7 @@ export default function App() {
           {tab==="dashboard" && <DashboardTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} pendingCount={pendingCount} isMobile={isMobile} t3Product={t3Product} setT3Product={setT3Product} />}
           {tab==="sounding" && <SoundingTab user={user} perm={perm} soundings={soundings} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"sounding"})} onApprove={approveSounding} onReject={rejectSounding} currentSession={currentSession} isMobile={isMobile} />}
           {tab==="cargo" && <CargoTab user={user} perm={perm} cargo={cargo} filterDate={filterDate} setFilterDate={setFilterDate} onNew={()=>setModal({type:"cargo"})} onApprove={approveCargo} onReject={rejectCargo} isMobile={isMobile} />}
-          {tab==="stock" && <StockControlTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} perm={perm} onClose={closeStockForDay} closingStock={closingStock} isMobile={isMobile} t3Product={t3Product} />}
+          {tab==="stock" && <StockControlTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} getControlStock={getControlStock} filterDate={filterDate} setFilterDate={setFilterDate} perm={perm} onClose={closeStockForDay} closingStock={closingStock} isMobile={isMobile} t3Product={t3Product} />}
           {tab==="approval" && <ApprovalTab user={user} perm={perm} soundings={soundings} cargo={cargo} onApproveSounding={approveSounding} onRejectSounding={rejectSounding} onApproveCargo={approveCargo} onRejectCargo={rejectCargo} isMobile={isMobile} />}
           {tab==="blend"  && <BlendingTab tanks={TANKS_DB} stockLevels={stockLevels} t3Product={t3Product} />}
           {tab==="report" && perm.viewAll && <ReportTab tanks={TANKS_DB} soundings={soundings} cargo={cargo} stockLevels={stockLevels} isMobile={isMobile} t3Product={t3Product} />}
@@ -560,7 +576,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
         <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap:12 }}>
           {tanks.map(tank=>{
             const ctrl = getControlStock(tank.id, filterDate);
-            const cur = stockLevels[tank.id] || ctrl.morning || 0;
+            const cur = ctrl.morning ?? stockLevels[tank.id] ?? 0;
             const pct = Math.min(100, Math.round((cur/tank.capacity)*100));
             const barColor = pct > 70 ? "#34d399" : pct > 30 ? "#00c8ff" : pct > 10 ? "#fbbf24" : "#ef4444";
             const typeIcon = { ship:"🚢", shore:"🏭", depot:"⛽" }[tank.type] || "▦";
@@ -662,29 +678,33 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
 
       {/* Variance Inventory */}
       <div>
-        <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:12 }}>Variance Inventory — {fmtDate(filterDate)}</div>
+        <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:12 }}>Daily Inventory Report — {fmtDate(filterDate)}</div>
         <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 90px 80px 80px 90px 110px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
-            <div>Tank</div><div>Opening</div><div>In</div><div>Out</div><div>Actual</div><div>Variance</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 95px 85px 90px 100px 90px 110px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
+            <div>Tank</div><div>Opening</div><div>Fuel IN</div><div>Fuel OUT</div><div>Calc. Stock</div><div>Afternoon</div><div>Variance</div>
           </div>
           {tanks.map((tank,i)=>{
             const ctrl = getControlStock(tank.id, filterDate);
-            const opening = ctrl.closing||ctrl.morning||stockLevels[tank.id]||0;
-            const actual = opening+ctrl.cargoIn-ctrl.cargoOut;
-            const measured = ctrl.afternoon!==null ? ctrl.afternoon : ctrl.morning;
-            const variance = measured!==null ? measured-actual : null;
+            const opening = ctrl.opening;
+            const actual  = opening + ctrl.cargoIn - ctrl.cargoOut;
+            const variance = ctrl.afternoon!==null ? ctrl.afternoon-actual : null;
             const varColor = variance===null?"rgba(255,255,255,0.25)":Math.abs(variance)<5?"#34d399":Math.abs(variance)<50?"#fbbf24":"#ef4444";
             return (
-              <div key={tank.id} className="row" style={{ display:"grid", gridTemplateColumns:"1fr 90px 80px 80px 90px 110px", padding:"11px 16px", borderBottom:i<tanks.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:11 }}>
+              <div key={tank.id} className="row" style={{ display:"grid", gridTemplateColumns:"1fr 95px 85px 90px 100px 90px 110px", padding:"11px 16px", borderBottom:i<tanks.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:11, background: ctrl.noMorningSounding?"rgba(245,158,11,0.03)":"transparent" }}>
                 <div>
                   <div style={{ color:"#fff" }}>{tank.name}</div>
-                  <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)" }}>{tank.product}</div>
+                  <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", marginTop:1 }}>
+                    {ctrl.noMorningSounding
+                      ? <span style={{ color:"#f59e0b" }}>⚠ {ctrl.morningRec?.noSounding ? "No Sounding — "+ctrl.morningReason : "No morning sounding"}</span>
+                      : (ctrl.morningRec?.time ? `Cut-off ${ctrl.morningRec.time}` : tank.product)}
+                  </div>
                 </div>
-                <div style={{ color:"rgba(255,255,255,0.5)", fontSize:10 }}>{fmt(opening)}</div>
+                <div style={{ color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"rgba(255,255,255,0.5)", fontSize:10 }}>{ctrl.noMorningSounding?"—":fmt(opening)}</div>
                 <div style={{ color:"#34d399", fontSize:10 }}>{ctrl.cargoIn>0?"+"+fmt(ctrl.cargoIn):"—"}</div>
                 <div style={{ color:"#f87171", fontSize:10 }}>{ctrl.cargoOut>0?"-"+fmt(ctrl.cargoOut):"—"}</div>
-                <div style={{ color:"#00c8ff", fontWeight:600, fontSize:10 }}>{fmt(actual)}</div>
-                <div style={{ color:varColor, fontWeight:700, fontSize:10 }}>{variance!==null?`${variance>=0?"+":""}${fmt(variance)} KL`:"No data"}</div>
+                <div style={{ color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#00c8ff", fontWeight:600, fontSize:10 }}>{ctrl.noMorningSounding?"—":fmt(actual)}</div>
+                <div style={{ color: ctrl.afternoon!==null?"#60a5fa":"rgba(255,255,255,0.25)", fontSize:10 }}>{ctrl.afternoon!==null?fmt(ctrl.afternoon):"—"}</div>
+                <div style={{ color:varColor, fontWeight:700, fontSize:10 }}>{variance!==null?`${variance>=0?"+":""}${fmt(variance)} KL`:"—"}</div>
               </div>
             );
           })}
@@ -737,24 +757,36 @@ function SoundingTab({ user, perm, soundings, filterDate, setFilterDate, onNew, 
 
       {/* Table */}
       <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 90px 80px 80px 80px 80px 1fr 130px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
-          <div>ID</div><div>Tank</div><div>Session</div><div>Level(m)</div><div>Vol(KL)</div><div>Temp(°C)</div><div>Density</div><div>Status</div><div>Actions</div>
+        <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 110px 70px 80px 80px 80px 1fr 130px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
+          <div>ID</div><div>Tank</div><div>Session · Time</div><div>Level(m)</div><div>Vol(KL)</div><div>Temp(°C)</div><div>Density</div><div>Status</div><div>Actions</div>
         </div>
         {filtered.length===0 && <div style={{ padding:"36px", textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:12 }}>No sounding records for this date</div>}
         {filtered.map((s,i)=>{
           const tank = TANKS_DB.find(t=>t.id===s.tankId);
           return (
-            <div key={s.id} className="row" style={{ display:"grid", gridTemplateColumns:"80px 1fr 90px 80px 80px 80px 80px 1fr 130px", padding:"12px 16px", borderBottom: i<filtered.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:12 }}>
+            <div key={s.id} className="row" style={{ display:"grid", gridTemplateColumns:"80px 1fr 110px 70px 80px 80px 80px 1fr 130px", padding:"12px 16px", borderBottom: i<filtered.length-1?"1px solid rgba(255,255,255,0.04)":"none", alignItems:"center", fontSize:12, background: s.noSounding?"rgba(245,158,11,0.04)":"transparent" }}>
               <div style={{ color:"rgba(255,255,255,0.3)", fontSize:10 }}>{s.id}</div>
               <div>
                 <div style={{ color:"#fff" }}>{tank?.name}</div>
                 <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>{s.date}</div>
               </div>
-              <div style={{ color: s.session==="morning"?"#fbbf24":"#60a5fa", fontSize:10, textTransform:"uppercase", letterSpacing:1 }}>{s.session}</div>
-              <div style={{ color:"#00c8ff" }}>{s.level}</div>
-              <div style={{ fontWeight:600 }}>{fmt(s.volume)}</div>
-              <div style={{ color:"rgba(255,255,255,0.5)" }}>{s.temp}</div>
-              <div style={{ color:"rgba(255,255,255,0.5)" }}>{s.density}</div>
+              <div>
+                <div style={{ color: s.session==="morning"?"#fbbf24":"#60a5fa", fontSize:10, textTransform:"uppercase", letterSpacing:1 }}>{s.session}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{s.time||"—"}</div>
+              </div>
+              {s.noSounding ? (
+                <div style={{ gridColumn:"span 4", display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:10, padding:"3px 9px", borderRadius:4, background:"rgba(245,158,11,0.12)", border:"1px solid rgba(245,158,11,0.3)", color:"#f59e0b", fontWeight:800, letterSpacing:0.5 }}>NO SOUNDING</span>
+                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{s.reason}</span>
+                </div>
+              ) : (
+                <>
+                  <div style={{ color:"#00c8ff" }}>{s.level}</div>
+                  <div style={{ fontWeight:600 }}>{fmt(s.volume)}</div>
+                  <div style={{ color:"rgba(255,255,255,0.5)" }}>{s.temp}</div>
+                  <div style={{ color:"rgba(255,255,255,0.5)" }}>{s.density}</div>
+                </>
+              )}
               <div><StatusBadge status={s.status} /></div>
               <div style={{ display:"flex", gap:6 }}>
                 {canApprove(s) && (
@@ -871,7 +903,7 @@ function CargoTab({ user, perm, cargo, filterDate, setFilterDate, onNew, onAppro
 }
 
 // ─── STOCK CONTROL ────────────────────────────────────────────────────────────
-function StockControlTab({ tanks, soundings, cargo, stockLevels, getControlStock, filterDate, setFilterDate, perm, onClose, closingStock, t3Product }) {
+function StockControlTab({ tanks, soundings, cargo, getControlStock, filterDate, setFilterDate, perm, onClose, closingStock, t3Product }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
@@ -884,19 +916,21 @@ function StockControlTab({ tanks, soundings, cargo, stockLevels, getControlStock
       </div>
 
       {/* Legend */}
-      <div style={{ display:"flex", gap:16, marginBottom:20, fontSize:10, color:"rgba(255,255,255,0.4)" }}>
-        <span>Formula: <span style={{ color:"#00c8ff" }}>Actual Stock = Opening + Cargo IN − Cargo OUT</span></span>
+      <div style={{ display:"flex", gap:16, marginBottom:20, fontSize:10, color:"rgba(255,255,255,0.4)", flexWrap:"wrap" }}>
+        <span>Formula: <span style={{ color:"#00c8ff" }}>Calculated Stock = Opening (Morning) + Fuel IN − Fuel OUT</span></span>
         <span>|</span>
-        <span>Opening from morning 07:00 sounding</span>
+        <span>Morning sounding = cut-off / opening snapshot</span>
+        <span>|</span>
+        <span>Afternoon = verification reading</span>
       </div>
 
       {/* Per-tank stock control table */}
       <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
         {tanks.map(tank=>{
           const ctrl = getControlStock(tank.id, filterDate);
-          const opening = ctrl.closing || ctrl.morning || stockLevels[tank.id] || 0;
-          const actual = opening + ctrl.cargoIn - ctrl.cargoOut;
-          const diff = ctrl.afternoon !== null ? (ctrl.afternoon - actual) : null;
+          const opening = ctrl.opening;
+          const actual  = opening + ctrl.cargoIn - ctrl.cargoOut;
+          const diff    = ctrl.afternoon !== null ? (ctrl.afternoon - actual) : null;
           const hasClosing = closingStock[`${tank.id}_${filterDate}`];
           const typeIcon = { ship:"🚢", shore:"🏭", depot:"⛽" }[tank.type];
           const isCritical = actual <= ALERT_LEVEL.volume;
@@ -928,16 +962,29 @@ function StockControlTab({ tanks, soundings, cargo, stockLevels, getControlStock
                 </div>
               </div>
 
+              {/* No-sounding notification */}
+              {ctrl.noMorningSounding && (
+                <div style={{ padding:"10px 20px", background:"rgba(245,158,11,0.07)", borderBottom:"1px solid rgba(245,158,11,0.15)", display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:14 }}>⚠️</span>
+                  <span style={{ fontSize:11, color:"#f59e0b", fontWeight:700 }}>
+                    {ctrl.morningRec?.noSounding
+                      ? `NO SOUNDING — ${ctrl.morningReason}`
+                      : "NO MORNING SOUNDING — Inventory cut-off not recorded for this date"}
+                  </span>
+                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", marginLeft:4 }}>· Stock report is incomplete</span>
+                </div>
+              )}
+
               {/* Control grid */}
               <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", padding:"0" }}>
                 {[
-                  { label:"Opening Stock", val: fmt(opening)+" KL", color:"#fff", sub:"From closing/morning" },
-                  { label:"Cargo IN", val: ctrl.cargoIn>0?"+"+fmt(ctrl.cargoIn)+" KL":"— KL", color:"#34d399", sub:"Approved cargo in" },
-                  { label:"Cargo OUT", val: ctrl.cargoOut>0?"-"+fmt(ctrl.cargoOut)+" KL":"— KL", color:"#f87171", sub:"Approved cargo out" },
-                  { label:"Actual Stock", val: fmt(actual)+" KL", color:"#00c8ff", sub:"Opening+IN−OUT", highlight:true },
-                  { label:"Morning Sound", val: ctrl.morning!==null?fmt(ctrl.morning)+" KL":"No data", color: ctrl.morning!==null?"#fbbf24":"rgba(255,255,255,0.2)", sub:"07:00 reading" },
-                  { label:"Afternoon Sound", val: ctrl.afternoon!==null?fmt(ctrl.afternoon)+" KL":"No data", color: ctrl.afternoon!==null?"#60a5fa":"rgba(255,255,255,0.2)", sub:"19:00 reading" },
-                  { label:"Difference", val: diff!==null?`${diff>=0?"+":""}${fmt(diff)} KL`:"—", color: diff===null?"rgba(255,255,255,0.2)":Math.abs(diff)<50?"#34d399":"#ef4444", sub:"Afternoon vs Actual" },
+                  { label:"Opening (Morning Cut-off)", val: ctrl.noMorningSounding?"— No Data":fmt(opening)+" KL", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#fff", sub:"Morning sounding snapshot" },
+                  { label:"Fuel IN (Discharge)", val: ctrl.cargoIn>0?"+"+fmt(ctrl.cargoIn)+" KL":"— KL", color:"#34d399", sub:"Received / discharge" },
+                  { label:"Fuel OUT (Distributed)", val: ctrl.cargoOut>0?"-"+fmt(ctrl.cargoOut)+" KL":"— KL", color:"#f87171", sub:"Distributed / sold" },
+                  { label:"Calculated Stock", val: ctrl.noMorningSounding?"— No Data":fmt(actual)+" KL", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#00c8ff", sub:"Opening+IN−OUT", highlight:true },
+                  { label:"Morning Time", val: ctrl.morningRec&&!ctrl.noMorningSounding?(ctrl.morningRec.time||"—"):"—", color:"#fbbf24", sub: ctrl.morningRec&&!ctrl.noMorningSounding?fmt(ctrl.morning)+" KL":"No reading" },
+                  { label:"Afternoon Reading", val: ctrl.afternoon!==null?fmt(ctrl.afternoon)+" KL":"No data", color: ctrl.afternoon!==null?"#60a5fa":"rgba(255,255,255,0.2)", sub: ctrl.afternoonRec?.time||"19:00 verify" },
+                  { label:"Variance", val: diff!==null?`${diff>=0?"+":""}${fmt(diff)} KL`:"—", color: diff===null?"rgba(255,255,255,0.2)":Math.abs(diff)<5?"#34d399":Math.abs(diff)<50?"#fbbf24":"#ef4444", sub:"Afternoon vs Calculated" },
                 ].map((col,ci)=>(
                   <div key={ci} style={{ padding:"14px 16px", borderRight: ci<6?"1px solid rgba(255,255,255,0.05)":"none", background: col.highlight?"rgba(0,200,255,0.04)":"transparent" }}>
                     <div style={{ fontSize:9, letterSpacing:1.5, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:6 }}>{col.label}</div>
@@ -1464,17 +1511,60 @@ function UsersTab() {
 }
 
 // ─── FORMS ────────────────────────────────────────────────────────────────────
+const NO_SOUNDING_REASONS = [
+  "Weather — Heavy Rain",
+  "Weather — Strong Wind / Wave",
+  "Equipment Fault — Sounding Tape",
+  "Tank Under Operation",
+  "Safety — Hot Work in Progress",
+  "Other",
+];
+
 function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
-  const [f, setF] = useState({ tankId:"T1", date:today(), session:currentSession, level:"", volume:"", temp:"", density:"", note:"" });
+  const defaultTime = currentSession === "morning" ? "07:00" : "19:00";
+  const [f, setF] = useState({
+    tankId:"T1", date:today(), session:currentSession, time:defaultTime,
+    noSounding:false, reason:"", customReason:"",
+    level:"", volume:"", temp:"", density:"", note:"",
+  });
   const set = (k,v) => setF(p=>({...p,[k]:v}));
-  const handle = () => {
-    if(!f.level||!f.volume||!f.temp||!f.density) return alert("Fill all sounding fields");
-    onSubmit({ ...f, level:+f.level, volume:+f.volume, temp:+f.temp, density:+f.density });
+
+  const handleSessionChange = (ses) => {
+    set("session", ses);
+    if(ses === "morning" && f.time === "19:00") set("time","07:00");
+    if(ses === "afternoon" && f.time === "07:00") set("time","19:00");
   };
+
+  const handle = () => {
+    if(!f.noSounding) {
+      if(!f.level||!f.volume||!f.temp||!f.density) return alert("Fill all sounding fields");
+      onSubmit({ ...f, level:+f.level, volume:+f.volume, temp:+f.temp, density:+f.density,
+        reason:"", customReason:"" });
+    } else {
+      const finalReason = f.reason === "Other" ? (f.customReason||"Other") : f.reason;
+      if(!finalReason) return alert("Enter a reason for no sounding");
+      onSubmit({ ...f, noSounding:true, reason:finalReason,
+        level:null, volume:null, temp:null, density:null });
+    }
+  };
+
   return (
     <div>
       <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:28, letterSpacing:3, marginBottom:8, color:"#fff" }}>NEW SOUNDING</div>
-      <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginBottom:24 }}>Submit daily tank sounding for approval</div>
+      <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginBottom:20 }}>Submit daily tank sounding for approval</div>
+
+      {/* No-Sounding toggle */}
+      <div style={{ display:"flex", gap:10, marginBottom:20 }}>
+        <button onClick={()=>set("noSounding",false)} className="btn-act"
+          style={{ flex:1, padding:"10px", borderRadius:8, border:`2px solid ${!f.noSounding?"#00c8ff":"rgba(255,255,255,0.1)"}`, background:!f.noSounding?"rgba(0,200,255,0.1)":"transparent", color:!f.noSounding?"#00c8ff":"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer", fontFamily:"inherit", fontWeight:800, letterSpacing:1 }}>
+          ◈ NORMAL SOUNDING
+        </button>
+        <button onClick={()=>set("noSounding",true)} className="btn-act"
+          style={{ flex:1, padding:"10px", borderRadius:8, border:`2px solid ${f.noSounding?"#f59e0b":"rgba(255,255,255,0.1)"}`, background:f.noSounding?"rgba(245,158,11,0.1)":"transparent", color:f.noSounding?"#f59e0b":"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer", fontFamily:"inherit", fontWeight:800, letterSpacing:1 }}>
+          ✕ NO SOUNDING (REMARK)
+        </button>
+      </div>
+
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
         <div>
           <Label>Tank</Label>
@@ -1487,36 +1577,64 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
           <input type="date" value={f.date} onChange={e=>set("date",e.target.value)} style={inputStyle} />
         </div>
         <div>
-          <Label>Session</Label>
-          <select value={f.session} onChange={e=>set("session",e.target.value)} style={inputStyle}>
-            <option value="morning" style={{background:"#0a0f1e"}}>Morning — 07:00</option>
-            <option value="afternoon" style={{background:"#0a0f1e"}}>Afternoon — 19:00</option>
+          <Label>Session (Shift)</Label>
+          <select value={f.session} onChange={e=>handleSessionChange(e.target.value)} style={inputStyle}>
+            <option value="morning" style={{background:"#0a0f1e"}}>Morning — Closing / Cut-off</option>
+            <option value="afternoon" style={{background:"#0a0f1e"}}>Afternoon — Mid-shift Check</option>
           </select>
         </div>
         <div>
-          <Label>Tank Level (meters)</Label>
-          <input type="number" step="0.01" placeholder="e.g. 4.25" value={f.level} onChange={e=>set("level",e.target.value)} style={inputStyle} />
+          <Label>Sounding Time</Label>
+          <input type="time" value={f.time} onChange={e=>set("time",e.target.value)} style={inputStyle} />
         </div>
-        <div>
-          <Label>Volume (KL)</Label>
-          <input type="number" step="0.01" placeholder="e.g. 2980" value={f.volume} onChange={e=>set("volume",e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <Label>Temperature (°C)</Label>
-          <input type="number" step="0.1" placeholder="e.g. 42.5" value={f.temp} onChange={e=>set("temp",e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <Label>Density (kg/L)</Label>
-          <input type="number" step="0.001" placeholder="e.g. 0.985" value={f.density} onChange={e=>set("density",e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <Label>Note (optional)</Label>
-          <input value={f.note} onChange={e=>set("note",e.target.value)} style={inputStyle} />
-        </div>
+
+        {f.noSounding ? (
+          /* No-Sounding reason */
+          <div style={{ gridColumn:"1/-1" }}>
+            <Label>Reason — Cannot Perform Sounding</Label>
+            <select value={f.reason} onChange={e=>set("reason",e.target.value)} style={{...inputStyle, marginBottom:10}}>
+              <option value="" style={{background:"#0a0f1e"}}>— Select reason —</option>
+              {NO_SOUNDING_REASONS.map(r=><option key={r} value={r} style={{background:"#0a0f1e"}}>{r}</option>)}
+            </select>
+            {f.reason === "Other" && (
+              <input placeholder="Describe reason..." value={f.customReason} onChange={e=>set("customReason",e.target.value)} style={inputStyle} />
+            )}
+            <div style={{ marginTop:10, padding:"10px 14px", background:"rgba(245,158,11,0.07)", border:"1px solid rgba(245,158,11,0.2)", borderRadius:8, fontSize:10, color:"rgba(245,158,11,0.8)" }}>
+              ⚠ This entry will be logged as "No Sounding" in the inventory report. The day's stock report will show blank for this session and notify supervisors.
+            </div>
+          </div>
+        ) : (
+          /* Normal sounding fields */
+          <>
+            <div>
+              <Label>Tank Level (meters)</Label>
+              <input type="number" step="0.01" placeholder="e.g. 2.45" value={f.level} onChange={e=>set("level",e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <Label>Volume (KL)</Label>
+              <input type="number" step="0.001" placeholder="e.g. 1655.196" value={f.volume} onChange={e=>set("volume",e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <Label>Temperature (°C)</Label>
+              <input type="number" step="0.1" placeholder="e.g. 30.0" value={f.temp} onChange={e=>set("temp",e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <Label>Density (kg/L)</Label>
+              <input type="number" step="0.001" placeholder="e.g. 0.850" value={f.density} onChange={e=>set("density",e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ gridColumn:"1/-1" }}>
+              <Label>Note (optional)</Label>
+              <input value={f.note} onChange={e=>set("note",e.target.value)} style={inputStyle} />
+            </div>
+          </>
+        )}
       </div>
+
       <div style={{ display:"flex", gap:10, marginTop:24 }}>
         <button onClick={onCancel} style={{ ...btnBase, flex:1, background:"rgba(255,255,255,0.05)", color:"rgba(255,255,255,0.6)" }}>Cancel</button>
-        <button onClick={handle}   style={{ ...btnBase, flex:2, background:"linear-gradient(135deg,#0070a8,#00c8ff)", color:"#fff" }}>SUBMIT SOUNDING</button>
+        <button onClick={handle} style={{ ...btnBase, flex:2, background: f.noSounding?"linear-gradient(135deg,#7a5200,#f59e0b)":"linear-gradient(135deg,#0070a8,#00c8ff)", color:"#fff" }}>
+          {f.noSounding ? "SUBMIT NO-SOUNDING REMARK" : "SUBMIT SOUNDING"}
+        </button>
       </div>
     </div>
   );
