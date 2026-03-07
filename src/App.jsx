@@ -51,39 +51,50 @@ const USERS_DB = [
 ];
 
 const TANKS_DB = [
-  { id:"T1", name:"Tank 1 HSD",      type:"shore", capacity:5000, product:"HSD",
+  { id:"T1", name:"Tank 1 HSD",      type:"shore", capacity:5000000, product:"HSD",
     calibration:[{cm:0,kl:0},{cm:100,kl:500},{cm:200,kl:1000},{cm:300,kl:1500},{cm:400,kl:2000},{cm:500,kl:2500},{cm:600,kl:3000},{cm:700,kl:3500},{cm:800,kl:4000},{cm:900,kl:4500},{cm:1000,kl:5000}] },
-  { id:"T2", name:"Tank 2 FAME",     type:"shore", capacity:1000, product:"FAME",
+  { id:"T2", name:"Tank 2 FAME",     type:"shore", capacity:1000000, product:"FAME",
     calibration:[{cm:0,kl:0},{cm:100,kl:100},{cm:200,kl:200},{cm:300,kl:300},{cm:400,kl:400},{cm:500,kl:500},{cm:600,kl:600},{cm:700,kl:700},{cm:800,kl:800},{cm:900,kl:900},{cm:1000,kl:1000}] },
-  { id:"T3", name:"Tank 3",          type:"shore", capacity:850,  product:"HSD",
+  { id:"T3", name:"Tank 3",          type:"shore", capacity:850000,  product:"HSD",
     calibration:[{cm:0,kl:0},{cm:100,kl:94},{cm:200,kl:189},{cm:300,kl:283},{cm:400,kl:378},{cm:500,kl:472},{cm:600,kl:567},{cm:700,kl:661},{cm:800,kl:756},{cm:900,kl:850}] },
-  { id:"T4", name:"Tank 4 Biosolar", type:"shore", capacity:110,  product:"Biosolar",
+  { id:"T4", name:"Tank 4 Biosolar", type:"shore", capacity:110000,  product:"Biosolar",
     calibration:[{cm:0,kl:0},{cm:50,kl:15.7},{cm:100,kl:31.4},{cm:150,kl:47.1},{cm:200,kl:62.9},{cm:250,kl:78.6},{cm:300,kl:94.3},{cm:350,kl:110}] },
 ];
 
 // Dead level thresholds (same for all tanks per work instruction)
-const DEAD_LEVEL  = { cm:30, volume:150 };  // warning — dead stock level
-const ALERT_LEVEL = { cm:10, volume:54  };  // critical alert level
+const DEAD_LEVEL  = { cm:30, volume:150000 };  // warning — dead stock level
+const ALERT_LEVEL = { cm:10, volume:54000  };  // critical alert level
 
-// ─── CALIBRATION LOOKUP (level cm → volume KL via linear interpolation) ───────
+// ─── CALIBRATION LOOKUP (level cm → volume L via linear interpolation) ────────
 function getVolumeFromLevel(tankId, levelCm) {
   const tank = TANKS_DB.find(t => t.id === tankId);
   if (!tank?.calibration || levelCm === "" || levelCm === null || levelCm === undefined) return null;
   const cm = parseFloat(levelCm);
   if (isNaN(cm) || cm < 0) return null;
   const cal = tank.calibration;
-  if (cm <= cal[0].cm) return cal[0].kl;
-  if (cm >= cal[cal.length-1].cm) return cal[cal.length-1].kl;
+  if (cm <= cal[0].cm) return cal[0].kl * 1000;
+  if (cm >= cal[cal.length-1].cm) return cal[cal.length-1].kl * 1000;
   for (let i = 0; i < cal.length - 1; i++) {
     if (cm >= cal[i].cm && cm <= cal[i+1].cm) {
       const ratio = (cm - cal[i].cm) / (cal[i+1].cm - cal[i].cm);
-      return parseFloat((cal[i].kl + ratio * (cal[i+1].kl - cal[i].kl)).toFixed(3));
+      return Math.round((cal[i].kl + ratio * (cal[i+1].kl - cal[i].kl)) * 1000);
     }
   }
   return null;
 }
 
 const today = () => new Date().toISOString().split("T")[0];
+const STORAGE_KEYS = { soundings:"dailysound:soundings", cargo:"dailysound:cargo", distributions:"dailysound:distributions", stockLevels:"dailysound:stockLevels", closingStock:"dailysound:closingStock" };
+
+const readStorage = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 const fmt = n => new Intl.NumberFormat("id-ID",{maximumFractionDigits:2}).format(n);
 const fmtTime = () => new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
 const fmtDate = d => new Date(d).toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"});
@@ -93,23 +104,17 @@ function genId(prefix) { return prefix + "_" + Date.now() + "_" + Math.floor(Mat
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 // level is stored in cm (dip from tank bottom); volume auto-calculated from calibration table
 const SEED_SOUNDINGS = [
-  { id:"S001", tankId:"T1", date:"2026-03-07", session:"morning", time:"07:15", noSounding:false, reason:"", level:331, volume:1655, temp:30, density:0.850, status:"approved_manager", submittedBy:"nikco",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
-  { id:"S002", tankId:"T2", date:"2026-03-07", session:"morning", time:"07:30", noSounding:false, reason:"", level:925, volume:925,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
-  { id:"S003", tankId:"T3", date:"2026-03-07", session:"morning", time:"07:45", noSounding:false, reason:"", level:827, volume:781,  temp:30, density:0.880, status:"approved_manager", submittedBy:"nicko",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
-  { id:"S004", tankId:"T4", date:"2026-03-07", session:"morning", time:"08:00", noSounding:false, reason:"", level:57,  volume:17.9, temp:31, density:0.890, status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S001", tankId:"T1", date:"2026-03-07", session:"morning", time:"07:15", noSounding:false, reason:"", level:331, volume:1655000, temp:30, operatorName:"Nikco", status:"approved_manager", submittedBy:"nikco",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S002", tankId:"T2", date:"2026-03-07", session:"morning", time:"07:30", noSounding:false, reason:"", level:925, volume:925000,  temp:30, operatorName:"Nota", status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S003", tankId:"T3", date:"2026-03-07", session:"morning", time:"07:45", noSounding:false, reason:"", level:827, volume:781000,  temp:30, operatorName:"Nicko", status:"approved_manager", submittedBy:"nicko",  supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
+  { id:"S004", tankId:"T4", date:"2026-03-07", session:"morning", time:"08:00", noSounding:false, reason:"", level:57,  volume:17900, temp:31, operatorName:"Nota", status:"approved_manager", submittedBy:"nota",   supervisorApproval:"approved", managerApproval:"approved", note:"Opening stock" },
 ];
 
 // ─── SEED DISTRIBUTIONS ───────────────────────────────────────────────────────
 // Distribution OUT = fuel issued to end consumers / vehicles / vessels
-const SEED_DISTRIBUTIONS = [
-  { id:"D001", tankId:"T4", date:"2026-03-07", time:"09:15", volume:5.0,  recipient:"Koperasi Tani Makmur", vehicleRef:"B 1122 CD", product:"Biosolar B35", status:"approved_manager", submittedBy:"kim", supervisorApproval:"approved", managerApproval:"approved", note:"Subsidi kuota harian" },
-];
+const SEED_DISTRIBUTIONS = [];
 
-const SEED_CARGO = [
-  { id:"C001", tankId:"T1", type:"in",  date:"2026-03-05", volume:3000, vesselRef:"MT Pertiwi", bL:"BL-2026-001", status:"approved_manager",  submittedBy:"kim",     supervisorApproval:"approved", managerApproval:"approved", note:"Loading HSD from refinery" },
-  { id:"C002", tankId:"T2", type:"out", date:"2026-03-05", volume:1500, vesselRef:"MT Merdeka", bL:"BL-2026-002", status:"pending_supervisor", submittedBy:"kim",     supervisorApproval:"pending",  managerApproval:"pending",  note:"FAME discharge to vessel" },
-  { id:"C003", tankId:"T1", type:"in",  date:"2026-03-06", volume:800,  vesselRef:"MT Nusantara", bL:"BL-2026-003", status:"approved_supervisor", submittedBy:"subandi", supervisorApproval:"approved", managerApproval:"pending", note:"HSD loading" },
-];
+const SEED_CARGO = [];
 
 // Compute actual stock per tank from seed
 const computeStockFromSoundings = () => {
@@ -220,11 +225,11 @@ function Login({ onLogin }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState("dashboard");
-  const [soundings, setSoundings] = useState(SEED_SOUNDINGS);
-  const [cargo, setCargo] = useState(SEED_CARGO);
-  const [distributions, setDistributions] = useState(SEED_DISTRIBUTIONS);
-  const [stockLevels, setStockLevels] = useState(computeStockFromSoundings());
-  const [closingStock, setClosingStock] = useState({});
+  const [soundings, setSoundings] = useState(() => readStorage(STORAGE_KEYS.soundings, SEED_SOUNDINGS));
+  const [cargo, setCargo] = useState(() => readStorage(STORAGE_KEYS.cargo, SEED_CARGO));
+  const [distributions, setDistributions] = useState(() => readStorage(STORAGE_KEYS.distributions, SEED_DISTRIBUTIONS));
+  const [stockLevels, setStockLevels] = useState(() => readStorage(STORAGE_KEYS.stockLevels, computeStockFromSoundings()));
+  const [closingStock, setClosingStock] = useState(() => readStorage(STORAGE_KEYS.closingStock, {}));
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
   const [clock, setClock] = useState(new Date());
@@ -241,6 +246,12 @@ export default function App() {
   }, []);
 
   useEffect(() => { const t = setInterval(()=>setClock(new Date()),1000); return ()=>clearInterval(t); },[]);
+
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.soundings, JSON.stringify(soundings)); }, [soundings]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.cargo, JSON.stringify(cargo)); }, [cargo]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.distributions, JSON.stringify(distributions)); }, [distributions]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.stockLevels, JSON.stringify(stockLevels)); }, [stockLevels]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.closingStock, JSON.stringify(closingStock)); }, [closingStock]);
 
   const showToast = (msg, type="ok") => { setToast({msg,type}); setTimeout(()=>setToast(null),3000); };
 
@@ -618,7 +629,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
       <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap:16, marginBottom:28 }}>
         {[
           { label:"Total Tanks",      val:tanks.length,    sub:"active tanks",         color:"#00c8ff" },
-          { label:"Total Volume",     val:fmt(totalValue)+" KL", sub:"combined stock", color:"#34d399" },
+          { label:"Total Volume",     val:fmt(totalValue)+" L", sub:"combined stock", color:"#34d399" },
           { label:"Pending Approvals",val:pendingCount,    sub:"awaiting review",       color:"#fbbf24" },
           { label:"Today's Soundings",val:soundings.filter(s=>s.date===filterDate).length, sub:"entries recorded", color:"#a78bfa" },
         ].map(c=>(
@@ -648,7 +659,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
                   <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, padding:"6px 10px", borderRadius:7, background:isCritical?"rgba(239,68,68,0.12)":"rgba(251,191,36,0.1)", border:`1px solid ${isCritical?"rgba(239,68,68,0.3)":"rgba(251,191,36,0.25)"}` }}>
                     <span className={isCritical?"blink":""} style={{ fontSize:13 }}>{isCritical?"🚨":"⚠️"}</span>
                     <span style={{ fontSize:10, fontWeight:800, color:isCritical?"#ef4444":"#fbbf24", letterSpacing:0.5 }}>
-                      {isCritical?`CRITICAL — Below ${ALERT_LEVEL.cm}cm / ${ALERT_LEVEL.volume} KL alert level`:`WARNING — Below ${DEAD_LEVEL.cm}cm / ${DEAD_LEVEL.volume} KL dead level`}
+                      {isCritical?`CRITICAL — Below ${ALERT_LEVEL.cm}cm / ${ALERT_LEVEL.volume} L alert level`:`WARNING — Below ${DEAD_LEVEL.cm}cm / ${DEAD_LEVEL.volume} L dead level`}
                     </span>
                   </div>
                 )}
@@ -667,8 +678,8 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
                     )}
                   </div>
                   <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)", textAlign:"right" }}>
-                    <div>{fmt(cur)} KL</div>
-                    <div>/ {fmt(tank.capacity)} KL</div>
+                    <div>{fmt(cur)} L</div>
+                    <div>/ {fmt(tank.capacity)} L</div>
                   </div>
                 </div>
                 {/* Bar */}
@@ -688,7 +699,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
 
       {/* Volume Chart */}
       <div style={{ marginBottom:28, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"20px 24px" }}>
-        <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:16 }}>Volume Chart — Current Stock vs Capacity (KL)</div>
+        <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:16 }}>Volume Chart — Current Stock vs Capacity (L)</div>
         <TankBarChart tanks={tanks} stockLevels={stockLevels} />
       </div>
 
@@ -706,7 +717,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
                     <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>{s.date} · {s.session}</div>
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:11, color:"#00c8ff" }}>{fmt(s.volume)} KL</div>
+                    <div style={{ fontSize:11, color:"#00c8ff" }}>{fmt(s.volume)} L</div>
                     <StatusBadge status={s.status} />
                   </div>
                 </div>
@@ -726,7 +737,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
                     <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>{c.date} · {c.vesselRef}</div>
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:11, color: c.type==="in"?"#34d399":"#f87171" }}>{c.type==="in"?"+":"-"}{fmt(c.volume)} KL</div>
+                    <div style={{ fontSize:11, color: c.type==="in"?"#34d399":"#f87171" }}>{c.type==="in"?"+":"-"}{fmt(c.volume)} L</div>
                     <StatusBadge status={c.status} />
                   </div>
                 </div>
@@ -765,7 +776,7 @@ function DashboardTab({ tanks, soundings, cargo, stockLevels, getControlStock, f
                 <div style={{ color:"#fb923c", fontSize:10 }}>{ctrl.distOut>0?"-"+fmt(ctrl.distOut):"—"}</div>
                 <div style={{ color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#00c8ff", fontWeight:600, fontSize:10 }}>{ctrl.noMorningSounding?"—":fmt(actual)}</div>
                 <div style={{ color: ctrl.afternoon!==null?"#60a5fa":"rgba(255,255,255,0.25)", fontSize:10 }}>{ctrl.afternoon!==null?fmt(ctrl.afternoon):"—"}</div>
-                <div style={{ color:varColor, fontWeight:700, fontSize:10 }}>{variance!==null?`${variance>=0?"+":""}${fmt(variance)} KL`:"—"}</div>
+                <div style={{ color:varColor, fontWeight:700, fontSize:10 }}>{variance!==null?`${variance>=0?"+":""}${fmt(variance)} L`:"—"}</div>
               </div>
             );
           })}
@@ -819,7 +830,7 @@ function SoundingTab({ user, perm, soundings, filterDate, setFilterDate, onNew, 
       {/* Table */}
       <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
         <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 110px 70px 80px 80px 80px 1fr 130px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
-          <div>ID</div><div>Tank</div><div>Session · Time</div><div>Dip(cm)</div><div>Vol(KL)</div><div>Temp(°C)</div><div>Density</div><div>Status</div><div>Actions</div>
+          <div>ID</div><div>Tank</div><div>Session · Time</div><div>Dip(cm)</div><div>Vol(L)</div><div>Temp(°C)</div><div>Operator</div><div>Status</div><div>Actions</div>
         </div>
         {filtered.length===0 && <div style={{ padding:"36px", textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:12 }}>No sounding records for this date</div>}
         {filtered.map((s,i)=>{
@@ -845,7 +856,7 @@ function SoundingTab({ user, perm, soundings, filterDate, setFilterDate, onNew, 
                   <div style={{ color:"#00c8ff" }}>{s.level}</div>
                   <div style={{ fontWeight:600 }}>{fmt(s.volume)}</div>
                   <div style={{ color:"rgba(255,255,255,0.5)" }}>{s.temp}</div>
-                  <div style={{ color:"rgba(255,255,255,0.5)" }}>{s.density}</div>
+                  <div style={{ color:"rgba(255,255,255,0.5)" }}>{s.operatorName||"-"}</div>
                 </>
               )}
               <div><StatusBadge status={s.status} /></div>
@@ -913,7 +924,7 @@ function CargoTab({ user, perm, cargo, filterDate, setFilterDate, onNew, onAppro
                 {type==="in"?"▼ CARGO IN":"▲ CARGO OUT"}
               </div>
               <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:28, color: type==="in"?"#34d399":"#f87171" }}>
-                {fmt(total)} KL
+                {fmt(total)} L
               </div>
               <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)", marginTop:2 }}>{rows.length} approved transactions</div>
             </div>
@@ -924,7 +935,7 @@ function CargoTab({ user, perm, cargo, filterDate, setFilterDate, onNew, onAppro
       {/* Table */}
       <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
         <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 70px 90px 1fr 80px 1fr 130px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(0,200,255,0.5)", textTransform:"uppercase" }}>
-          <div>ID</div><div>Tank</div><div>Type</div><div>Vol(KL)</div><div>Vessel/Ref</div><div>B/L</div><div>Status</div><div>Actions</div>
+          <div>ID</div><div>Tank</div><div>Type</div><div>Vol(L)</div><div>Vessel/Ref</div><div>B/L</div><div>Status</div><div>Actions</div>
         </div>
         {filtered.length===0 && <div style={{ padding:"36px", textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:12 }}>No cargo records for this date</div>}
         {filtered.map((c,i)=>{
@@ -1005,7 +1016,7 @@ function DistribTab({ user, perm, distributions, filterDate, setFilterDate, onNe
       <div style={{ background:"rgba(251,146,60,0.06)", border:"1px solid rgba(251,146,60,0.2)", borderRadius:12, padding:"16px 20px", marginBottom:24, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <div>
           <div style={{ fontSize:9, letterSpacing:2, color:"rgba(251,146,60,0.7)", textTransform:"uppercase", marginBottom:4 }}>Total Distributed (approved) — {filterDate}</div>
-          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:30, color:"#fb923c" }}>{fmt(totalApproved)} KL</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:30, color:"#fb923c" }}>{fmt(totalApproved)} L</div>
         </div>
         <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>{filtered.filter(d=>d.status==="approved_manager").length} transactions</div>
       </div>
@@ -1013,7 +1024,7 @@ function DistribTab({ user, perm, distributions, filterDate, setFilterDate, onNe
       {/* Table */}
       <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
         <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 75px 85px 1fr 1fr 1fr 130px", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", fontSize:9, letterSpacing:1.5, color:"rgba(251,146,60,0.6)", textTransform:"uppercase" }}>
-          <div>ID</div><div>Tank</div><div>Time</div><div>Vol(KL)</div><div>Recipient</div><div>Vehicle/Ref</div><div>Status</div><div>Actions</div>
+          <div>ID</div><div>Tank</div><div>Time</div><div>Vol(L)</div><div>Recipient</div><div>Vehicle/Ref</div><div>Status</div><div>Actions</div>
         </div>
         {filtered.length===0 && <div style={{ padding:"36px", textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:12 }}>No distribution records for this date</div>}
         {filtered.map((d,i)=>{
@@ -1100,7 +1111,7 @@ function StockControlTab({ tanks, getControlStock, filterDate, setFilterDate, pe
                       {isCritical && <span className="blink" style={{ fontSize:9, fontWeight:800, padding:"2px 7px", borderRadius:4, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.4)", color:"#ef4444", letterSpacing:0.5 }}>🚨 CRITICAL</span>}
                       {isWarning  && <span style={{ fontSize:9, fontWeight:800, padding:"2px 7px", borderRadius:4, background:"rgba(251,191,36,0.12)", border:"1px solid rgba(251,191,36,0.3)", color:"#fbbf24", letterSpacing:0.5 }}>⚠ DEAD LEVEL</span>}
                     </div>
-                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{tank.id==="T3" ? t3Product : tank.product} · Cap: {fmt(tank.capacity)} KL</div>
+                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{tank.id==="T3" ? t3Product : tank.product} · Cap: {fmt(tank.capacity)} L</div>
                   </div>
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -1130,14 +1141,14 @@ function StockControlTab({ tanks, getControlStock, filterDate, setFilterDate, pe
               {/* Control grid */}
               <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", padding:"0" }}>
                 {[
-                  { label:"Opening (Morning)", val: ctrl.noMorningSounding?"— No Data":fmt(opening)+" KL", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#fff", sub:"Morning cut-off snapshot" },
-                  { label:"Discharge IN", val: ctrl.cargoIn>0?"+"+fmt(ctrl.cargoIn)+" KL":"—", color:"#34d399", sub:"Cargo received" },
-                  { label:"Cargo OUT", val: ctrl.cargoOut>0?"-"+fmt(ctrl.cargoOut)+" KL":"—", color:"#f87171", sub:"Transfer / cargo out" },
-                  { label:"Distribution OUT", val: ctrl.distOut>0?"-"+fmt(ctrl.distOut)+" KL":"—", color:"#fb923c", sub:"Fuel issued to consumers" },
-                  { label:"Calculated Stock", val: ctrl.noMorningSounding?"— No Data":fmt(actual)+" KL", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#00c8ff", sub:"Open+IN−CargoOut−DistOut", highlight:true },
-                  { label:"Morning Time", val: ctrl.morningRec&&!ctrl.noMorningSounding?(ctrl.morningRec.time||"—"):"—", color:"#fbbf24", sub: ctrl.morningRec&&!ctrl.noMorningSounding?fmt(ctrl.morning)+" KL cut-off":"No reading" },
-                  { label:"Afternoon Reading", val: ctrl.afternoon!==null?fmt(ctrl.afternoon)+" KL":"No data", color: ctrl.afternoon!==null?"#60a5fa":"rgba(255,255,255,0.2)", sub: ctrl.afternoonRec?.time||"19:00 verify" },
-                  { label:"Variance", val: diff!==null?`${diff>=0?"+":""}${fmt(diff)} KL`:"—", color: diff===null?"rgba(255,255,255,0.2)":Math.abs(diff)<5?"#34d399":Math.abs(diff)<50?"#fbbf24":"#ef4444", sub:"Afternoon vs Calculated" },
+                  { label:"Opening (Morning)", val: ctrl.noMorningSounding?"— No Data":fmt(opening)+" L", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#fff", sub:"Morning cut-off snapshot" },
+                  { label:"Discharge IN", val: ctrl.cargoIn>0?"+"+fmt(ctrl.cargoIn)+" L":"—", color:"#34d399", sub:"Cargo received" },
+                  { label:"Cargo OUT", val: ctrl.cargoOut>0?"-"+fmt(ctrl.cargoOut)+" L":"—", color:"#f87171", sub:"Transfer / cargo out" },
+                  { label:"Distribution OUT", val: ctrl.distOut>0?"-"+fmt(ctrl.distOut)+" L":"—", color:"#fb923c", sub:"Fuel issued to consumers" },
+                  { label:"Calculated Stock", val: ctrl.noMorningSounding?"— No Data":fmt(actual)+" L", color: ctrl.noMorningSounding?"rgba(255,255,255,0.2)":"#00c8ff", sub:"Open+IN−CargoOut−DistOut", highlight:true },
+                  { label:"Morning Time", val: ctrl.morningRec&&!ctrl.noMorningSounding?(ctrl.morningRec.time||"—"):"—", color:"#fbbf24", sub: ctrl.morningRec&&!ctrl.noMorningSounding?fmt(ctrl.morning)+" L cut-off":"No reading" },
+                  { label:"Afternoon Reading", val: ctrl.afternoon!==null?fmt(ctrl.afternoon)+" L":"No data", color: ctrl.afternoon!==null?"#60a5fa":"rgba(255,255,255,0.2)", sub: ctrl.afternoonRec?.time||"19:00 verify" },
+                  { label:"Variance", val: diff!==null?`${diff>=0?"+":""}${fmt(diff)} L`:"—", color: diff===null?"rgba(255,255,255,0.2)":Math.abs(diff)<5?"#34d399":Math.abs(diff)<50?"#fbbf24":"#ef4444", sub:"Afternoon vs Calculated" },
                 ].map((col,ci)=>(
                   <div key={ci} style={{ padding:"14px 16px", borderRight: ci<7?"1px solid rgba(255,255,255,0.05)":"none", background: col.highlight?"rgba(0,200,255,0.04)":"transparent" }}>
                     <div style={{ fontSize:9, letterSpacing:1.5, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", marginBottom:6 }}>{col.label}</div>
@@ -1222,7 +1233,7 @@ function ApprovalTab({ user, perm, soundings, cargo, distributions, onApproveSou
                   </div>
                   <div style={{ fontSize:12 }}>
                     <span style={{ color:"rgba(255,255,255,0.4)" }}>Level: </span><span style={{ color:"#00c8ff" }}>{s.level}m</span>
-                    <span style={{ color:"rgba(255,255,255,0.4)", marginLeft:12 }}>Vol: </span><span style={{ color:"#fff" }}>{fmt(s.volume)} KL</span>
+                    <span style={{ color:"rgba(255,255,255,0.4)", marginLeft:12 }}>Vol: </span><span style={{ color:"#fff" }}>{fmt(s.volume)} L</span>
                     <span style={{ color:"rgba(255,255,255,0.4)", marginLeft:12 }}>Temp: </span><span>{s.temp}°C</span>
                   </div>
                 </div>
@@ -1252,7 +1263,7 @@ function ApprovalTab({ user, perm, soundings, cargo, distributions, onApproveSou
                     <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:2 }}>{c.date} · {c.vesselRef} · {c.bL} · by {c.submittedBy}</div>
                   </div>
                   <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:22, color: c.type==="in"?"#34d399":"#f87171" }}>
-                    {c.type==="in"?"+":"-"}{fmt(c.volume)} KL
+                    {c.type==="in"?"+":"-"}{fmt(c.volume)} L
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -1281,7 +1292,7 @@ function ApprovalTab({ user, perm, soundings, cargo, distributions, onApproveSou
                     <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:2 }}>{d.date} {d.time||""} · {d.recipient} · {d.product} · by {d.submittedBy}</div>
                   </div>
                   <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:22, color:"#fb923c" }}>
-                    -{fmt(d.volume)} KL
+                    -{fmt(d.volume)} L
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -1395,13 +1406,13 @@ function ReportTab({ tanks, soundings, cargo, distributions, stockLevels, t3Prod
                         <div style={{ color:"#fff" }}>{tank.name}</div>
                         <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", marginTop:1 }}>{openingSnap?.date||"no snap"} cut-off</div>
                       </div>
-                      <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10 }}>{fmt(opening)} KL</div>
+                      <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10 }}>{fmt(opening)} L</div>
                       <div style={{ color:"#34d399", fontSize:10 }}>{cargoIn>0?"+"+fmt(cargoIn):"—"}</div>
                       <div style={{ color:"#f87171", fontSize:10 }}>{cargoOut>0?"-"+fmt(cargoOut):"—"}</div>
                       <div style={{ color:"#fb923c", fontSize:10 }}>{distOut>0?"-"+fmt(distOut):"—"}</div>
-                      <div style={{ color:"#00c8ff", fontWeight:700, fontSize:10 }}>{fmt(calcClosing)} KL</div>
-                      <div style={{ color:actualClosing!==null?"#60a5fa":"rgba(255,255,255,0.25)", fontSize:10 }}>{actualClosing!==null?fmt(actualClosing)+" KL":"— no sounding"}</div>
-                      <div style={{ color:varColor, fontWeight:700, fontSize:10 }}>{variance!==null?`${variance>=0?"+":""}${fmt(variance)} KL`:"—"}</div>
+                      <div style={{ color:"#00c8ff", fontWeight:700, fontSize:10 }}>{fmt(calcClosing)} L</div>
+                      <div style={{ color:actualClosing!==null?"#60a5fa":"rgba(255,255,255,0.25)", fontSize:10 }}>{actualClosing!==null?fmt(actualClosing)+" L":"— no sounding"}</div>
+                      <div style={{ color:varColor, fontWeight:700, fontSize:10 }}>{variance!==null?`${variance>=0?"+":""}${fmt(variance)} L`:"—"}</div>
                     </div>
                   );
                 })}
@@ -1424,7 +1435,7 @@ function ReportTab({ tanks, soundings, cargo, distributions, stockLevels, t3Prod
               <div key={t.id} style={{ marginBottom:14 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, fontSize:11 }}>
                   <span style={{ color:"rgba(255,255,255,0.7)" }}>{t.name}</span>
-                  <span style={{ color }}>{fmt(vol)} / {fmt(t.capacity)} KL ({pct}%)</span>
+                  <span style={{ color }}>{fmt(vol)} / {fmt(t.capacity)} L ({pct}%)</span>
                 </div>
                 <div style={{ height:5, background:"rgba(255,255,255,0.06)", borderRadius:2 }}>
                   <div style={{ height:"100%", width:`${pct}%`, background:color, borderRadius:2, transition:"width 0.4s" }} />
@@ -1443,7 +1454,7 @@ function ReportTab({ tanks, soundings, cargo, distributions, stockLevels, t3Prod
             { label:"Soundings Rejected", val: soundings.filter(s=>s.status==="rejected").length, color:"#ef4444" },
             { label:"Cargo Approved",     val: cargo.filter(c=>c.status==="approved_manager").length, color:"#34d399" },
             { label:"Cargo Pending",      val: cargo.filter(c=>c.status!=="approved_manager"&&c.status!=="rejected").length, color:"#fbbf24" },
-            { label:"Total Stock (KL)",   val: fmt(tanks.reduce((a,t)=>(stockLevels[t.id]||0)+a,0)), color:"#00c8ff" },
+            { label:"Total Stock (L)",   val: fmt(tanks.reduce((a,t)=>(stockLevels[t.id]||0)+a,0)), color:"#00c8ff" },
           ].map(item=>(
             <div key={item.label} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:11 }}>
               <span style={{ color:"rgba(255,255,255,0.5)" }}>{item.label}</span>
@@ -1482,8 +1493,8 @@ function ReportTab({ tanks, soundings, cargo, distributions, stockLevels, t3Prod
               <div key={t.id} style={{ padding:"10px 0", borderBottom:"1px solid rgba(255,255,255,0.05)", display:"flex", justifyContent:"space-between" }}>
                 <span style={{ fontSize:11, color:"rgba(255,255,255,0.7)" }}>{t.name}</span>
                 <div style={{ display:"flex", gap:14, fontSize:11 }}>
-                  <span style={{ color:"#34d399" }}>+{fmt(tIn)} KL</span>
-                  <span style={{ color:"#f87171" }}>-{fmt(tOut)} KL</span>
+                  <span style={{ color:"#34d399" }}>+{fmt(tIn)} L</span>
+                  <span style={{ color:"#f87171" }}>-{fmt(tOut)} L</span>
                 </div>
               </div>
             );
@@ -1499,7 +1510,7 @@ function ReportTab({ tanks, soundings, cargo, distributions, stockLevels, t3Prod
             <div key={t.id} style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 16px" }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
                 <div style={{ fontSize:11, color:"#fff", fontWeight:600 }}>{t.name}</div>
-                <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>{t.id==="T3"?t3Product:t.product} · cap {fmt(t.capacity)} KL</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>{t.id==="T3"?t3Product:t.product} · cap {fmt(t.capacity)} L</div>
               </div>
               <SoundingLineChart soundings={soundings} tankId={t.id} color={tankColors[ti%4]} />
             </div>
@@ -1565,7 +1576,7 @@ function BlendingTab({ tanks, stockLevels, t3Product }) {
 
   const calculate = () => {
     const vol = parseFloat(targetVol);
-    if (!vol || vol <= 0) return alert("Enter a valid target volume (KL)");
+    if (!vol || vol <= 0) return alert("Enter a valid target volume (L)");
     const sel = BLEND_GRADES.find(b => b.label === grade);
     const famePct = sel.fame / 100;
     const hsdPct  = 1 - famePct;
@@ -1607,12 +1618,12 @@ function BlendingTab({ tanks, stockLevels, t3Product }) {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:28 }}>
         <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 20px" }}>
           <div style={{ fontSize:9, letterSpacing:2, color:"rgba(0,200,255,0.5)", textTransform:"uppercase", marginBottom:12 }}>Available HSD Stock</div>
-          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:28, color:"#60a5fa" }}>{fmt(hsdStock)} KL</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:28, color:"#60a5fa" }}>{fmt(hsdStock)} L</div>
           <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:4 }}>{hsdTank?.name}</div>
         </div>
         <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 20px" }}>
           <div style={{ fontSize:9, letterSpacing:2, color:"rgba(0,200,255,0.5)", textTransform:"uppercase", marginBottom:12 }}>Available FAME Stock</div>
-          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:28, color:"#34d399" }}>{fmt(fameStock)} KL</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:28, color:"#34d399" }}>{fmt(fameStock)} L</div>
           <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:4 }}>
             {fameTank?.name}{t3Contributes ? ` + ${t3Tank?.name} (FAME)` : ""}
           </div>
@@ -1624,7 +1635,7 @@ function BlendingTab({ tanks, stockLevels, t3Product }) {
         <div style={{ fontSize:10, letterSpacing:2, color:"rgba(255,255,255,0.35)", textTransform:"uppercase", marginBottom:20 }}>Blend Request</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:14, alignItems:"flex-end" }}>
           <div>
-            <Label>Target Biosolar Volume (KL)</Label>
+            <Label>Target Biosolar Volume (L)</Label>
             <input type="number" min="0" step="0.001" placeholder="e.g. 100" value={targetVol} onChange={e=>{setTargetVol(e.target.value);setResult(null);}}
               style={inputStyle} />
           </div>
@@ -1647,7 +1658,7 @@ function BlendingTab({ tanks, stockLevels, t3Product }) {
               const vol = parseFloat(targetVol)||0;
               const sel = BLEND_GRADES.find(b=>b.label===grade);
               const fN = v => fmt(parseFloat((v).toFixed(3)));
-              return `${grade} formula: ${fN(vol * sel.fame/100)} KL FAME (${sel.fame}%) + ${sel.fame<100?fN(vol*(100-sel.fame)/100)+" KL HSD ("+( 100-sel.fame)+"%)":"—"} = ${fN(vol)} KL Biosolar`;
+              return `${grade} formula: ${fN(vol * sel.fame/100)} L FAME (${sel.fame}%) + ${sel.fame<100?fN(vol*(100-sel.fame)/100)+" L HSD ("+( 100-sel.fame)+"%)":"—"} = ${fN(vol)} L Biosolar`;
             })()}
           </div>
         )}
@@ -1663,7 +1674,7 @@ function BlendingTab({ tanks, stockLevels, t3Product }) {
                 {result.feasible ? "BLEND FEASIBLE" : "INSUFFICIENT STOCK"}
               </div>
               <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:2 }}>
-                {result.grade} · {fmt(result.vol)} KL Biosolar target
+                {result.grade} · {fmt(result.vol)} L Biosolar target
               </div>
             </div>
           </div>
@@ -1672,24 +1683,24 @@ function BlendingTab({ tanks, stockLevels, t3Product }) {
             {/* FAME */}
             <div style={{ background: result.fameOk?"rgba(52,211,153,0.07)":"rgba(239,68,68,0.07)", border:`1px solid ${result.fameOk?"rgba(52,211,153,0.2)":"rgba(239,68,68,0.2)"}`, borderRadius:10, padding:"16px 20px" }}>
               <div style={{ fontSize:9, letterSpacing:2, color:"#34d399", textTransform:"uppercase", marginBottom:8 }}>FAME Required ({result.famePct}%)</div>
-              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:26, color: result.fameOk?"#34d399":"#ef4444" }}>{fmt(result.fameNeeded)} KL</div>
-              <div style={{ marginTop:8, fontSize:10, color:"rgba(255,255,255,0.45)" }}>Available: <span style={{ color: result.fameOk?"#34d399":"#ef4444" }}>{fmt(fameStock)} KL</span></div>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:26, color: result.fameOk?"#34d399":"#ef4444" }}>{fmt(result.fameNeeded)} L</div>
+              <div style={{ marginTop:8, fontSize:10, color:"rgba(255,255,255,0.45)" }}>Available: <span style={{ color: result.fameOk?"#34d399":"#ef4444" }}>{fmt(fameStock)} L</span></div>
               <div style={{ fontSize:10, color:"rgba(255,255,255,0.45)", marginTop:2 }}>
                 {result.fameOk
-                  ? <>Remaining after blend: <span style={{ color:"#34d399" }}>{fmt(result.fameRemaining)} KL</span></>
-                  : <span style={{ color:"#ef4444" }}>Deficit: {fmt(Math.abs(result.fameRemaining))} KL</span>}
+                  ? <>Remaining after blend: <span style={{ color:"#34d399" }}>{fmt(result.fameRemaining)} L</span></>
+                  : <span style={{ color:"#ef4444" }}>Deficit: {fmt(Math.abs(result.fameRemaining))} L</span>}
               </div>
             </div>
             {/* HSD */}
             {result.hsdPct > 0 && (
               <div style={{ background: result.hsdOk?"rgba(96,165,250,0.07)":"rgba(239,68,68,0.07)", border:`1px solid ${result.hsdOk?"rgba(96,165,250,0.2)":"rgba(239,68,68,0.2)"}`, borderRadius:10, padding:"16px 20px" }}>
                 <div style={{ fontSize:9, letterSpacing:2, color:"#60a5fa", textTransform:"uppercase", marginBottom:8 }}>HSD Required ({result.hsdPct}%)</div>
-                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:26, color: result.hsdOk?"#60a5fa":"#ef4444" }}>{fmt(result.hsdNeeded)} KL</div>
-                <div style={{ marginTop:8, fontSize:10, color:"rgba(255,255,255,0.45)" }}>Available: <span style={{ color: result.hsdOk?"#60a5fa":"#ef4444" }}>{fmt(hsdStock)} KL</span></div>
+                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:26, color: result.hsdOk?"#60a5fa":"#ef4444" }}>{fmt(result.hsdNeeded)} L</div>
+                <div style={{ marginTop:8, fontSize:10, color:"rgba(255,255,255,0.45)" }}>Available: <span style={{ color: result.hsdOk?"#60a5fa":"#ef4444" }}>{fmt(hsdStock)} L</span></div>
                 <div style={{ fontSize:10, color:"rgba(255,255,255,0.45)", marginTop:2 }}>
                   {result.hsdOk
-                    ? <>Remaining after blend: <span style={{ color:"#60a5fa" }}>{fmt(result.hsdRemaining)} KL</span></>
-                    : <span style={{ color:"#ef4444" }}>Deficit: {fmt(Math.abs(result.hsdRemaining))} KL</span>}
+                    ? <>Remaining after blend: <span style={{ color:"#60a5fa" }}>{fmt(result.hsdRemaining)} L</span></>
+                    : <span style={{ color:"#ef4444" }}>Deficit: {fmt(Math.abs(result.hsdRemaining))} L</span>}
                 </div>
               </div>
             )}
@@ -1787,7 +1798,7 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
   const [f, setF] = useState({
     tankId:"T1", date:today(), session:currentSession, time:defaultTime,
     noSounding:false, reason:"", customReason:"",
-    level:"", volume:"", volumeFromCal:false, temp:"", density:"", note:"",
+    level:"", volume:"", volumeFromCal:false, temp:"", operatorName:user?.username==="kim"?"Kim":"", note:"",
   });
   const set = (k,v) => setF(p=>({...p,[k]:v}));
 
@@ -1809,14 +1820,14 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
 
   const handle = () => {
     if(!f.noSounding) {
-      if(!f.level||!f.volume||!f.temp||!f.density) return alert("Fill all sounding fields");
-      onSubmit({ ...f, level:+f.level, volume:+f.volume, temp:+f.temp, density:+f.density,
+      if(!f.level||!f.volume||!f.temp||!f.operatorName) return alert("Fill all sounding fields");
+      onSubmit({ ...f, level:+f.level, volume:+f.volume, temp:+f.temp,
         reason:"", customReason:"", volumeFromCal:undefined });
     } else {
       const finalReason = f.reason === "Other" ? (f.customReason||"Other") : f.reason;
       if(!finalReason) return alert("Enter a reason for no sounding");
       onSubmit({ ...f, noSounding:true, reason:finalReason,
-        level:null, volume:null, temp:null, density:null, volumeFromCal:undefined });
+        level:null, volume:null, temp:null, operatorName:"", volumeFromCal:undefined });
     }
   };
 
@@ -1884,7 +1895,7 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
             </div>
             <div>
               <div style={{ fontSize:9, letterSpacing:2, textTransform:"uppercase", marginBottom:6, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <span style={{ color:"rgba(0,200,255,0.5)" }}>Volume (KL)</span>
+                <span style={{ color:"rgba(0,200,255,0.5)" }}>Volume (L)</span>
                 {f.volumeFromCal
                   ? <span style={{ color:"#34d399", fontSize:8 }}>◈ AUTO — calibration table</span>
                   : <span style={{ color:"rgba(255,255,255,0.25)", fontSize:8 }}>manual input</span>}
@@ -1898,8 +1909,8 @@ function SoundingForm({ user, onSubmit, onCancel, currentSession, t3Product }) {
               <input type="number" step="0.1" placeholder="e.g. 30.0" value={f.temp} onChange={e=>set("temp",e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <Label>Density (kg/L)</Label>
-              <input type="number" step="0.001" placeholder="e.g. 0.850" value={f.density} onChange={e=>set("density",e.target.value)} style={inputStyle} />
+              <Label>Operator Name</Label>
+              <input placeholder="e.g. Kim" value={f.operatorName} onChange={e=>set("operatorName",e.target.value)} style={inputStyle} />
             </div>
             <div style={{ gridColumn:"1/-1" }}>
               <Label>Note (optional)</Label>
@@ -1956,7 +1967,7 @@ function CargoForm({ user, onSubmit, onCancel }) {
           </div>
         </div>
         <div>
-          <Label>Volume (KL) *</Label>
+          <Label>Volume (L) *</Label>
           <input type="number" placeholder="e.g. 1500" value={f.volume} onChange={e=>set("volume",e.target.value)} style={inputStyle} />
         </div>
         <div>
@@ -2016,7 +2027,7 @@ function DistribForm({ onSubmit, onCancel }) {
           </select>
         </div>
         <div>
-          <Label>Volume (KL) *</Label>
+          <Label>Volume (L) *</Label>
           <input type="number" step="0.001" min="0" placeholder="e.g. 5.0" value={f.volume} onChange={e=>set("volume",e.target.value)} style={inputStyle} />
         </div>
         <div>
@@ -2127,11 +2138,11 @@ function downloadCSV(soundings, cargo) {
     [`DAILYSOUND EXPORT`, new Date().toLocaleString("id-ID")],
     [],
     [`SOUNDINGS`],
-    [`ID`,`Tank`,`Date`,`Session`,`Level(m)`,`Volume(KL)`,`Temp(°C)`,`Density`,`Status`,`By`,`Note`],
-    ...soundings.map(s => { const t=TANKS_DB.find(x=>x.id===s.tankId); return [s.id,t?.name||s.tankId,s.date,s.session,s.level,s.volume,s.temp,s.density,s.status,s.submittedBy,s.note]; }),
+    [`ID`,`Tank`,`Date`,`Session`,`Level(m)`,`Volume(L)`,`Temp(°C)`,`Operator`,`Status`,`By`,`Note`],
+    ...soundings.map(s => { const t=TANKS_DB.find(x=>x.id===s.tankId); return [s.id,t?.name||s.tankId,s.date,s.session,s.level,s.volume,s.temp,s.operatorName||"",s.status,s.submittedBy,s.note]; }),
     [],
     [`CARGO`],
-    [`ID`,`Tank`,`Date`,`Type`,`Volume(KL)`,`Vessel/Ref`,`B/L`,`Status`,`By`,`Note`],
+    [`ID`,`Tank`,`Date`,`Type`,`Volume(L)`,`Vessel/Ref`,`B/L`,`Status`,`By`,`Note`],
     ...cargo.map(c => { const t=TANKS_DB.find(x=>x.id===c.tankId); return [c.id,t?.name||c.tankId,c.date,c.type,c.volume,c.vesselRef,c.bL,c.status,c.submittedBy,c.note]; }),
   ];
   const csv = rows.map(r => Array.isArray(r) ? r.map(q).join(",") : "").join("\n");
@@ -2168,15 +2179,15 @@ function printReport(tanks, soundings, cargo, stockLevels) {
     <div style="text-align:right"><p>Generated: ${new Date().toLocaleString("id-ID")}</p><p>${soundings.length} soundings &nbsp;·&nbsp; ${cargo.length} cargo records</p></div>
   </div>
   <h2>Tank Summary</h2>
-  <table><thead><tr><th>Tank</th><th>Product</th><th>Capacity (KL)</th><th>Stock (KL)</th><th>Fill %</th></tr></thead><tbody>
+  <table><thead><tr><th>Tank</th><th>Product</th><th>Capacity (L)</th><th>Stock (L)</th><th>Fill %</th></tr></thead><tbody>
   ${tanks.map(t=>{const v=stockLevels[t.id]||0;const p=Math.round(v/t.capacity*100);return`<tr><td>${t.name}</td><td>${t.product}</td><td>${fN(t.capacity)}</td><td>${fN(v)}</td><td>${p}%</td></tr>`;}).join("")}
   </tbody></table>
   <h2>Approved Soundings</h2>
-  <table><thead><tr><th>ID</th><th>Tank</th><th>Date</th><th>Session</th><th>Level(m)</th><th>Volume(KL)</th><th>Temp(°C)</th><th>Density</th><th>By</th></tr></thead><tbody>
-  ${approved.map(s=>{const t=TANKS_DB.find(x=>x.id===s.tankId);return`<tr><td>${s.id}</td><td>${t?.name||s.tankId}</td><td>${s.date}</td><td>${s.session}</td><td>${s.level}</td><td>${fN(s.volume)}</td><td>${s.temp}</td><td>${s.density}</td><td>${s.submittedBy}</td></tr>`;}).join("")}
+  <table><thead><tr><th>ID</th><th>Tank</th><th>Date</th><th>Session</th><th>Level(m)</th><th>Volume(L)</th><th>Temp(°C)</th><th>Operator</th><th>By</th></tr></thead><tbody>
+  ${approved.map(s=>{const t=TANKS_DB.find(x=>x.id===s.tankId);return`<tr><td>${s.id}</td><td>${t?.name||s.tankId}</td><td>${s.date}</td><td>${s.session}</td><td>${s.level}</td><td>${fN(s.volume)}</td><td>${s.temp}</td><td>${s.operatorName||""}</td><td>${s.submittedBy}</td></tr>`;}).join("")}
   </tbody></table>
   <h2>Approved Cargo</h2>
-  <table><thead><tr><th>ID</th><th>Tank</th><th>Date</th><th>Type</th><th>Volume(KL)</th><th>Vessel</th><th>B/L</th><th>By</th></tr></thead><tbody>
+  <table><thead><tr><th>ID</th><th>Tank</th><th>Date</th><th>Type</th><th>Volume(L)</th><th>Vessel</th><th>B/L</th><th>By</th></tr></thead><tbody>
   ${cargo.filter(c=>c.status==="approved_manager").map(c=>{const t=TANKS_DB.find(x=>x.id===c.tankId);return`<tr><td>${c.id}</td><td>${t?.name||c.tankId}</td><td>${c.date}</td><td>${c.type.toUpperCase()}</td><td>${fN(c.volume)}</td><td>${c.vesselRef}</td><td>${c.bL}</td><td>${c.submittedBy}</td></tr>`;}).join("")}
   </tbody></table>
   </body></html>`;
